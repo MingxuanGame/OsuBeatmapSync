@@ -50,6 +50,7 @@ func sync(config *Config, metadata *Metadata, graph *onedrive.GraphClient, downl
 		retry = downloader.SyncNewBeatmap(metadata, graph, config.Path.Root, downloaders, retry, config.General.MaxConcurrent, modeMap, statusMap, ctx)
 		err := application.SaveMetadataToLocal(metadata)
 		if err != nil {
+			log.Println(err)
 			return false
 		}
 	}
@@ -173,10 +174,6 @@ func SyncBeatmaps(ctx context.Context, tasks, worker int, start bool, since time
 		err := application.UploadMetadata(client, config.Path.Root, &metadata)
 		if err != nil {
 			return err
-		}
-		err = os.Remove("metadata.json")
-		if err != nil {
-			log.Println(err)
 		}
 	} else if start {
 		log.Println("Current worker: ", worker)

@@ -95,11 +95,6 @@ func GetMetadata(graph *onedrive.GraphClient, root string) (Metadata, error) {
 }
 
 func SaveMetadataToLocal(metadata *Metadata) error {
-	err := os.Remove("needMakeList.json")
-	if err != nil {
-		return err
-	}
-	err = os.Remove("metadata.json")
 	jsonData, err := json.Marshal(metadata)
 	if err != nil {
 		return err
@@ -145,5 +140,6 @@ func UploadMetadata(graph *onedrive.GraphClient, root string, metadata *Metadata
 		return err
 	}
 	_ = os.Remove("metadata.db")
+	_ = os.Remove("metadata.json")
 	return nil
 }
