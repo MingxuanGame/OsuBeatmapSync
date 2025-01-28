@@ -70,14 +70,14 @@ func (b BeatmapsetMetadata) Equal(other BeatmapsetMetadata) bool {
 		if sourceBeatmap.Status != otherBeatmap.Status {
 			return false
 		}
-		if len(sourceBeatmap.Link) != len(otherBeatmap.Link) {
-			return false
-		}
-		for i, sourceLink := range sourceBeatmap.Link {
-			if sourceLink != otherBeatmap.Link[i] {
-				return false
-			}
-		}
+		//if len(sourceBeatmap.Link) != len(otherBeatmap.Link) {
+		//	return false
+		//}
+		//for i, sourceLink := range sourceBeatmap.Link {
+		//	if sourceLink != otherBeatmap.Link[i] {
+		//		return false
+		//	}
+		//}
 	}
 	return true
 }
