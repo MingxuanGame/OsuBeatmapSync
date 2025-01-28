@@ -8,6 +8,8 @@ import (
 import _ "github.com/ncruces/go-sqlite3/driver"
 import _ "github.com/ncruces/go-sqlite3/embed"
 
+const MetadataDBFilename = "metadata.db"
+
 type Database struct {
 	*sql.DB
 }
@@ -16,8 +18,8 @@ func (d *Database) Close() error {
 	return d.DB.Close()
 }
 
-func OpenDatabase() (*Database, error) {
-	db, err := sql.Open("sqlite3", "file:metadata.db")
+func OpenDatabase(path string) (*Database, error) {
+	db, err := sql.Open("sqlite3", path)
 	if err != nil {
 		return nil, err
 	}

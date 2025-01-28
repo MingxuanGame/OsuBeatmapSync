@@ -107,7 +107,7 @@ func (client *GraphClient) ListAllFiles(root string, length int) ([]DriveItem, e
 	return allFiles, nil
 }
 
-func MakeShareLink(client *GraphClient, item string) (string, error) {
+func (client *GraphClient) MakeShareLink(item string) (string, error) {
 	req, err := client.NewRequestWithBuffer("POST", "/me/drive/items/"+item+"/createLink", bytes.NewBufferString(`{"type": "view", "scope": "anonymous"}`))
 	if err != nil {
 		return "", err

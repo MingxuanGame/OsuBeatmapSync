@@ -10,6 +10,8 @@ import (
 	"os"
 )
 
+const MetadataTempFilename = "metadata.json"
+
 func getMetadataFromRemote(graph *onedrive.GraphClient, root string) (Metadata, error) {
 	metadata := Metadata{
 		GameMode:    make(map[GameMode]MetadataGameMode),
@@ -26,7 +28,7 @@ func getMetadataFromRemote(graph *onedrive.GraphClient, root string) (Metadata, 
 		return metadata, nil
 	}
 	for _, file := range *files {
-		if file.Name == "metadata.db" {
+		if file.Name == sql.MetadataDBFilename {
 			metadataFile = file
 			break
 		}
@@ -37,11 +39,15 @@ func getMetadataFromRemote(graph *onedrive.GraphClient, root string) (Metadata, 
 		if err != nil {
 			return Metadata{}, err
 		}
-		err = os.WriteFile("metadata.db", data, 0644)
+		f, err := os.CreateTemp("", "beatmap-sync-")
 		if err != nil {
 			return Metadata{}, err
 		}
-		db, err := sql.OpenDatabase()
+		_, err = f.Write(data)
+		if err != nil {
+			return Metadata{}, err
+		}
+		db, err := sql.OpenDatabase(f.Name())
 		if err != nil {
 			return Metadata{}, err
 		}
@@ -53,7 +59,8 @@ func getMetadataFromRemote(graph *onedrive.GraphClient, root string) (Metadata, 
 		if err != nil {
 			return Metadata{}, err
 		}
-		_ = os.Remove("metadata.db")
+		_ = f.Close()
+		_ = os.Remove(f.Name())
 	} else {
 		metadata = Metadata{
 			GameMode:    make(map[GameMode]MetadataGameMode),
@@ -81,7 +88,7 @@ func ReadLocalMetadata(filename string) (Metadata, error, bool) {
 }
 
 func GetMetadata(graph *onedrive.GraphClient, root string) (Metadata, error) {
-	metadata, err, ok := ReadLocalMetadata("metadata.json")
+	metadata, err, ok := ReadLocalMetadata(MetadataTempFilename)
 	if err != nil {
 		return Metadata{}, err
 	}
@@ -99,22 +106,33 @@ func SaveMetadataToLocal(metadata *Metadata) error {
 	if err != nil {
 		return err
 	}
-	err = os.WriteFile("metadata.json", jsonData, 0644)
+	err = os.WriteFile(MetadataTempFilename, jsonData, 0644)
 	return err
 }
 
-func SaveMetadataToLocalDB(metadata *Metadata) error {
-	db, err := sql.OpenDatabase()
+func SaveMetadataToLocalDB(metadata *Metadata) (string, error) {
+	f, err := os.CreateTemp("", "beatmap-sync-")
+	defer func(f *os.File) {
+		err := f.Close()
+		if err != nil {
+			log.Println(err)
+		}
+	}(f)
+
 	if err != nil {
-		return err
+		return "", err
+	}
+	db, err := sql.OpenDatabase(f.Name())
+	if err != nil {
+		return "", err
 	}
 	err = db.DropAllMetadata()
 	if err != nil {
-		return err
+		return "", err
 	}
 	err = db.WriteMetadata(metadata)
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer func(db *sql.Database) {
 		err := db.Close()
@@ -122,24 +140,24 @@ func SaveMetadataToLocalDB(metadata *Metadata) error {
 			log.Println(err)
 		}
 	}(db)
-	return nil
+	return f.Name(), nil
 }
 
 func UploadMetadata(graph *onedrive.GraphClient, root string, metadata *Metadata) error {
-	err := SaveMetadataToLocalDB(metadata)
+	filename, err := SaveMetadataToLocalDB(metadata)
 	if err != nil {
 		return err
 	}
 	log.Println("Uploading metadata...")
-	data, err := os.ReadFile("metadata.db")
+	data, err := os.ReadFile(filename)
 	if err != nil {
 		return err
 	}
-	err = graph.UploadLargeFile(root, "metadata.db", data)
+	err = graph.UploadLargeFile(root, sql.MetadataDBFilename, data)
 	if err != nil {
 		return err
 	}
-	_ = os.Remove("metadata.db")
-	_ = os.Remove("metadata.json")
+	_ = os.Remove(filename)
+	_ = os.Remove(MetadataTempFilename)
 	return nil
 }

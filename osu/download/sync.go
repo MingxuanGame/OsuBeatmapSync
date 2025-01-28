@@ -79,7 +79,7 @@ skipUpload:
 			panic(fmt.Errorf("[onedrive] failed to get item: %w", err))
 		}
 	}
-	link, err := onedrive.MakeShareLink(graph, item.Id)
+	link, err := graph.MakeShareLink(item.Id)
 	if err != nil {
 		panic(fmt.Errorf("[onedrive] failed to make share link: %w", err))
 	}

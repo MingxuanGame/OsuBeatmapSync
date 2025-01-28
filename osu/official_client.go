@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"time"
 )
 
@@ -16,12 +17,12 @@ type LegacyOfficialClient struct {
 	client *http.Client
 }
 
-func (client *LegacyOfficialClient) GetBeatmapBySetId(s string) (*[]Beatmap, error) {
-	return client.GetBeatmap(map[string]interface{}{"s": s})
+func (client *LegacyOfficialClient) GetBeatmapBySetId(s int) (*[]Beatmap, error) {
+	return client.GetBeatmap(map[string]interface{}{"s": strconv.Itoa(s)})
 }
 
-func (client *LegacyOfficialClient) GetBeatmapByBeatmapId(b string) (*[]Beatmap, error) {
-	return client.GetBeatmap(map[string]interface{}{"b": b})
+func (client *LegacyOfficialClient) GetBeatmapByBeatmapId(b int) (*[]Beatmap, error) {
+	return client.GetBeatmap(map[string]interface{}{"b": strconv.Itoa(b)})
 }
 
 func (client *LegacyOfficialClient) GetBeatmapByTime(since time.Time) (*[]Beatmap, error) {

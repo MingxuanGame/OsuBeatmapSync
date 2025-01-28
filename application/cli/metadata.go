@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/MingxuanGame/OsuBeatmapSync/application"
-	. "github.com/MingxuanGame/OsuBeatmapSync/file"
+	. "github.com/MingxuanGame/OsuBeatmapSync/metadata"
 	. "github.com/MingxuanGame/OsuBeatmapSync/model"
 	. "github.com/MingxuanGame/OsuBeatmapSync/model/onedrive"
 	"github.com/MingxuanGame/OsuBeatmapSync/onedrive"
@@ -18,31 +18,17 @@ import (
 	"time"
 )
 
+const needMakeListFilename = "needMakeList.json"
+
 func getAllFile(graph *onedrive.GraphClient, root string) ([]DriveItem, error) {
-	var allFiles []DriveItem
-	savedData, err := os.ReadFile("allFiles.json")
-	if os.IsNotExist(err) {
-		allFiles, err = graph.ListAllFiles(root, 200)
-		allFilesData, err := json.Marshal(allFiles)
-		if err != nil {
-			return nil, err
-		}
-		err = os.WriteFile("allFiles.json", allFilesData, 0644)
-		if err != nil {
-			return nil, err
-		}
-	} else if err != nil {
+	allFiles, err := graph.ListAllFiles(root, 200)
+	if err != nil {
 		return nil, err
-	}
-	if len(savedData) != 0 {
-		err = json.Unmarshal(savedData, &allFiles)
-		if err != nil {
-			return nil, err
-		}
 	}
 	return allFiles, nil
 }
-func getNeedMakeListLocal(filename string) ([]DriveItem, error, bool) {
+
+func readLocalNeedMakeList(filename string) ([]DriveItem, error, bool) {
 	var needMakeList []DriveItem
 	savedData, err := os.ReadFile(filename)
 	if os.IsNotExist(err) {
@@ -61,7 +47,7 @@ func getNeedMakeListLocal(filename string) ([]DriveItem, error, bool) {
 }
 
 func getNeedMakeList(graph *onedrive.GraphClient, root string, metadata *Metadata) ([]DriveItem, error) {
-	needMakeList, err, ok := getNeedMakeListLocal("needMakeList.json")
+	needMakeList, err, ok := readLocalNeedMakeList(needMakeListFilename)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +58,7 @@ func getNeedMakeList(graph *onedrive.GraphClient, root string, metadata *Metadat
 		}
 		log.Println("All files count: ", len(allFiles))
 		for _, file := range allFiles {
-			if file.Folder != nil || !strings.HasSuffix(file.Name, ".osz") {
+			if file.IsFolder() || !strings.HasSuffix(file.Name, ".osz") {
 				continue
 			}
 			_, _, beatmapsetId := utils.ParseFilename(file.Name)
@@ -84,7 +70,7 @@ func getNeedMakeList(graph *onedrive.GraphClient, root string, metadata *Metadat
 		if err != nil {
 			return nil, err
 		}
-		err = os.WriteFile("needMakeList.json", needMakeListData, 0644)
+		err = os.WriteFile(needMakeListFilename, needMakeListData, 0644)
 		if err != nil {
 			return nil, err
 		}
@@ -92,16 +78,17 @@ func getNeedMakeList(graph *onedrive.GraphClient, root string, metadata *Metadat
 	return needMakeList, nil
 }
 
-func makeMetadata(metadata Metadata, needMakeList []DriveItem, client *osu.LegacyOfficialClient, graph *onedrive.GraphClient, maxConcurrent int, ctx context.Context) {
+func makeMetadata(g *Generator, needMakeList []DriveItem, ctx context.Context) error {
 	log.Println("Need to made metadata count: ", len(needMakeList))
 	if len(needMakeList) == 0 {
-		return
+		return nil
 	}
 	log.Printf("Generating Beatmapset: %d\n", len(needMakeList))
-	retry := GenerateExistedFileMetadata(needMakeList, client, graph, &metadata, maxConcurrent, ctx)
-	err := application.SaveMetadataToLocal(&metadata)
+	g.GenerateExistedFileMetadata(needMakeList)
+	metadata := g.Metadata
+	err := application.SaveMetadataToLocal(metadata)
 	if err != nil {
-		return
+		return err
 	}
 	log.Printf("Generated Beatmapset: %d\n", len(metadata.Beatmapsets))
 	select {
@@ -110,17 +97,18 @@ func makeMetadata(metadata Metadata, needMakeList []DriveItem, client *osu.Legac
 	default:
 	}
 	for {
-		if len(retry) == 0 {
+		if len(g.Failed) == 0 {
 			break
 		}
-		log.Println("Failed: ", len(retry))
+		log.Println("Failed: ", len(g.Failed))
 		time.Sleep(time.Minute)
-		retry = GenerateExistedFileMetadata(needMakeList, client, graph, &metadata, maxConcurrent, ctx)
-		err := application.SaveMetadataToLocal(&metadata)
+		g.GenerateExistedFileMetadata(g.Failed)
+		err := application.SaveMetadataToLocal(metadata)
 		if err != nil {
-			return
+			return err
 		}
 	}
+	return nil
 }
 
 func MakeMetadata(ctx context.Context, tasks, worker int, start bool) error {
@@ -161,26 +149,33 @@ func MakeMetadata(ctx context.Context, tasks, worker int, start bool) error {
 			worker = 1
 		}
 	}
+	generator := NewGenerator(osuClient, client, ctx, config.General.MaxConcurrent, &metadata)
 	if worker == 0 {
 		if len(needMakeList) > 0 {
-			makeMetadata(metadata, needMakeList, osuClient, client, config.General.MaxConcurrent, ctx)
-			err := application.UploadMetadata(client, root, &metadata)
+			err := makeMetadata(generator, needMakeList, ctx)
+			if err != nil {
+				return err
+			}
+			err = application.UploadMetadata(client, root, &metadata)
 			if err != nil {
 				return err
 			}
 		}
-		_ = os.Remove("metadata.json")
-		_ = os.Remove("needMakeList.json")
+		_ = os.Remove(application.MetadataTempFilename)
+		_ = os.Remove(needMakeListFilename)
 	} else if start {
 		log.Println("Current worker: ", worker)
-		needMakeList, err, ok := getNeedMakeListLocal("needMakeList" + strconv.Itoa(worker) + ".json")
+		needMakeList, err, ok := readLocalNeedMakeList("needMakeList" + strconv.Itoa(worker) + ".json")
 		if err != nil {
 			return err
 		}
 		if !ok {
 			return fmt.Errorf("no needMakeList file")
 		}
-		makeMetadata(metadata, needMakeList, osuClient, client, config.General.MaxConcurrent, ctx)
+		err = makeMetadata(generator, needMakeList, ctx)
+		if err != nil {
+			return err
+		}
 	}
 	_ = os.Remove("allFiles.json")
 	return nil
