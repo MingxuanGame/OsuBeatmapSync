@@ -66,7 +66,7 @@ func upload(root, typ string, graph *onedrive.GraphClient, beatmapset Beatmapset
 			goto skipUpload
 		}
 	}
-	log.Warn().Int("sid", beatmapset.BeatmapsetId).Str("type", typ).Msg("Uploading...")
+	log.Info().Int("sid", beatmapset.BeatmapsetId).Str("type", typ).Msg("Uploading...")
 	err = uploadBeatmap(graph, path, filename, data)
 	if err != nil {
 		panic("[onedrive] failed to upload file: " + err.Error())
