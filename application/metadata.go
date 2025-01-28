@@ -6,7 +6,7 @@ import (
 	. "github.com/MingxuanGame/OsuBeatmapSync/model/onedrive"
 	"github.com/MingxuanGame/OsuBeatmapSync/onedrive"
 	"github.com/MingxuanGame/OsuBeatmapSync/sql"
-	"log"
+	"github.com/rs/zerolog/log"
 	"os"
 )
 
@@ -24,7 +24,7 @@ func getMetadataFromRemote(graph *onedrive.GraphClient, root string) (Metadata, 
 	}
 	var metadataFile DriveItem
 	if files == nil {
-		log.Println("No existed metadata file found")
+		log.Error().Msg("No existed metadata file found")
 		return metadata, nil
 	}
 	for _, file := range *files {
@@ -34,7 +34,7 @@ func getMetadataFromRemote(graph *onedrive.GraphClient, root string) (Metadata, 
 		}
 	}
 	if metadataFile.Name != "" {
-		log.Println("Found existed metadata file, downloading...")
+		log.Info().Msg("Found existed metadata file, downloading...")
 		data, err := graph.DownloadFile(metadataFile.Id)
 		if err != nil {
 			return Metadata{}, err
@@ -115,7 +115,7 @@ func SaveMetadataToLocalDB(metadata *Metadata) (string, error) {
 	defer func(f *os.File) {
 		err := f.Close()
 		if err != nil {
-			log.Println(err)
+			log.Error().Err(err).Msg("Failed to close file")
 		}
 	}(f)
 
@@ -137,7 +137,7 @@ func SaveMetadataToLocalDB(metadata *Metadata) (string, error) {
 	defer func(db *sql.Database) {
 		err := db.Close()
 		if err != nil {
-			log.Println(err)
+			log.Error().Err(err).Msg("Failed to close database")
 		}
 	}(db)
 	return f.Name(), nil
@@ -148,7 +148,7 @@ func UploadMetadata(graph *onedrive.GraphClient, root string, metadata *Metadata
 	if err != nil {
 		return err
 	}
-	log.Println("Uploading metadata...")
+	log.Info().Msg("Uploading metadata...")
 	data, err := os.ReadFile(filename)
 	if err != nil {
 		return err

@@ -8,9 +8,9 @@ import (
 	"fmt"
 	. "github.com/MingxuanGame/OsuBeatmapSync/model"
 	"github.com/MingxuanGame/OsuBeatmapSync/utils"
+	"github.com/rs/zerolog/log"
 	"golang.org/x/oauth2"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -52,7 +52,7 @@ func NewGraphClient(clientId string, clientSecret string, tenant string, ctx con
 		RedirectURL: "http://localhost:8080/callback",
 	}
 	url := conf.AuthCodeURL("state", oauth2.AccessTypeOffline)
-	log.Printf("Please visit here to login: %v\n", url)
+	log.Info().Msgf("Please visit here to login: %v", url)
 
 	var code string
 	called := make(chan struct{})
@@ -69,7 +69,7 @@ func NewGraphClient(clientId string, clientSecret string, tenant string, ctx con
 	go func() {
 		err := server.ListenAndServe()
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Println("Failed to start server:", err)
+			log.Error().Err(err).Msg("Failed to start server:")
 		}
 	}()
 
@@ -148,7 +148,7 @@ func (client *GraphClient) Do(req *http.Request) (*http.Response, error) {
 			return nil, err
 		}
 		client.ctx = ctx
-		log.Printf("[onedrive] Rate limited, sleeping for %s.\n", retryAfter)
+		log.Info().Str("api", "onedrive").Msgf("Rate limited, sleeping for %s.", retryAfter)
 		time.Sleep(retryAfter)
 		body, err := io.ReadAll(req.Body)
 		if err != nil {

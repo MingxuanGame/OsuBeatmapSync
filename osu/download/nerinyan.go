@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/MingxuanGame/OsuBeatmapSync/utils"
+	"github.com/rs/zerolog/log"
 	"io"
-	"log"
 	"net/http"
 	"time"
 )
@@ -36,7 +36,7 @@ func (d *NerinyanDownloader) do(req *http.Request) ([]byte, error) {
 			return nil, err
 		}
 		d.ctx = ctx
-		log.Printf("[osu! nerinyan] Rate limited, sleeping for %s.\n", retryAfter)
+		log.Warn().Str("api", "osu! nerinyan").Msgf("Rate limited, sleeping for %s.", retryAfter)
 		time.Sleep(retryAfter)
 		data, err = d.do(req)
 		if err != nil {

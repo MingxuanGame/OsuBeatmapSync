@@ -10,7 +10,7 @@ import (
 	"github.com/MingxuanGame/OsuBeatmapSync/osu"
 	downloader "github.com/MingxuanGame/OsuBeatmapSync/osu/download"
 	"github.com/MingxuanGame/OsuBeatmapSync/utils"
-	"log"
+	"github.com/rs/zerolog/log"
 	"os"
 	"strconv"
 	"time"
@@ -45,12 +45,12 @@ func sync(config *Config, metadata *Metadata, graph *onedrive.GraphClient, downl
 		if len(retry) == 0 {
 			break
 		}
-		log.Println("Failed: ", len(retry))
+		log.Info().Msgf("Failed: %d", len(retry))
 		time.Sleep(time.Minute)
 		retry = downloader.SyncNewBeatmap(metadata, graph, config.Path.Root, downloaders, retry, config.General.MaxConcurrent, modeMap, statusMap, ctx)
 		err := application.SaveMetadataToLocal(metadata)
 		if err != nil {
-			log.Println(err)
+			log.Error().Err(err).Msg("Failed to save metadata")
 			return false
 		}
 	}
@@ -99,13 +99,13 @@ func getNeedSyncBeatmaps(metadata *Metadata, osuClient *osu.LegacyOfficialClient
 			lastTime = modeTime
 		}
 	}
-	log.Printf("Getting all beatmaps since %s\n", lastTime.Format(time.RFC3339))
+	log.Info().Msgf("Getting all beatmaps since %s", lastTime.Format(time.RFC3339))
 	allSyncBeatmapset, err := application.GetAllNewBeatmapset(ctx, osuClient, lastTime)
 	if err != nil {
 		return nil, err
 	}
 
-	log.Printf("Total: %d, end: %s\n", len(allSyncBeatmapset), lastTime.Format(time.RFC3339))
+	log.Info().Msgf("Total: %d, end: %s", len(allSyncBeatmapset), lastTime.Format(time.RFC3339))
 
 	for beatmapsetId, info := range allSyncBeatmapset {
 		if _, ok := metadata.Beatmapsets[beatmapsetId]; !ok {
@@ -141,7 +141,7 @@ func SyncBeatmaps(ctx context.Context, tasks, worker int, start bool, since time
 		if err != nil {
 			return err
 		}
-		log.Printf("Need sync: %d\n", len(needSyncBeatmaps))
+		log.Info().Msgf("Need sync: %d", len(needSyncBeatmaps))
 		if tasks > 1 {
 			taskList := utils.SplitSlice(needSyncBeatmaps, tasks)
 			for i, task := range taskList {
@@ -168,7 +168,7 @@ func SyncBeatmaps(ctx context.Context, tasks, worker int, start bool, since time
 	if config.Osu.EnableCatboy {
 		downloaders = append(downloaders, downloader.NewCatboyDownloader(ctx))
 	}
-	log.Println("Start Syncing...")
+	log.Info().Msg("Start Syncing...")
 	if worker == 0 {
 		sync(&config, &metadata, client, downloaders, needSyncBeatmaps, ctx)
 		err := application.UploadMetadata(client, config.Path.Root, &metadata)
@@ -176,7 +176,7 @@ func SyncBeatmaps(ctx context.Context, tasks, worker int, start bool, since time
 			return err
 		}
 	} else if start {
-		log.Println("Current worker: ", worker)
+		log.Info().Msgf("Current worker: %d", worker)
 		needSyncBeatmaps, err, ok := getNeedSyncBeatmapsLocal("needSync"+strconv.Itoa(worker)+".json", &metadata)
 		if err != nil {
 			return err
@@ -198,6 +198,6 @@ func SyncBeatmaps(ctx context.Context, tasks, worker int, start bool, since time
 		}
 	}
 
-	log.Println("Sync finished...")
+	log.Info().Msg("Sync finished...")
 	return nil
 }

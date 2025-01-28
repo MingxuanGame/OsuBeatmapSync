@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	. "github.com/MingxuanGame/OsuBeatmapSync/model/onedrive"
+	"github.com/rs/zerolog/log"
 	"io"
-	"log"
 	"net/url"
 	"regexp"
 	"strconv"
@@ -52,7 +52,7 @@ func (client *GraphClient) ListFiles(path string, length int, nextUrl string) (*
 		return &files, nil
 	}
 	for {
-		log.Printf("[%s] Got %d, remaining %d\n", path, len(files), length-len(files))
+		log.Info().Str("path", path).Msgf("Got %d, remaining %d", len(files), length-len(files))
 		if response.NextItem == "" || len(files) >= length {
 			break
 		}
@@ -97,7 +97,7 @@ func (client *GraphClient) ListAllFiles(root string, length int) ([]DriveItem, e
 			defer wg.Done()
 			files, err := client.ListAllFiles(root+"/"+dir.Name, dir.Folder.ChildCount)
 			if err != nil {
-				log.Println(err)
+				log.Error().Err(err).Msg("Failed to list files")
 				return
 			}
 			allFiles = append(allFiles, files...)

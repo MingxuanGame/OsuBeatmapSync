@@ -5,7 +5,7 @@ import (
 	"fmt"
 	. "github.com/MingxuanGame/OsuBeatmapSync/model"
 	"github.com/MingxuanGame/OsuBeatmapSync/onedrive"
-	"log"
+	"github.com/rs/zerolog/log"
 	"strings"
 	"sync"
 	"time"
@@ -36,7 +36,7 @@ func MakeFilename(beatmapsetId int, artist, name string) string {
 func downloadBeatmap(downloader BeatmapDownloader, beatmap *BeatmapsetMetadata) ([]byte, error) {
 	var data []byte
 	var err error
-	log.Printf("[%s - %d] Downloading\n", downloader.Name(), beatmap.BeatmapsetId)
+	log.Info().Str("downloader", downloader.Name()).Int("sid", beatmap.BeatmapsetId).Msg("Downloading beatmapset...")
 	data, err = downloader.DownloadBeatmapset(beatmap.BeatmapsetId)
 	if err != nil {
 		return nil, fmt.Errorf("[%s] failed to download beatmap set: %w", downloader.Name(), err)
@@ -57,16 +57,16 @@ func upload(root, typ string, graph *onedrive.GraphClient, beatmapset Beatmapset
 	filename := MakeFilename(beatmapset.BeatmapsetId, beatmap.Artist, beatmap.Title)
 	item, err := graph.GetItem(path, filename)
 	if err != nil {
-		log.Printf("[%d %s] Failed to get item: %s", beatmapset.BeatmapsetId, typ, err)
+		log.Warn().Err(err).Int("sid", beatmapset.BeatmapsetId).Str("type", typ).Msg("Failed to get item")
 	}
 	if item != nil {
-		log.Printf("[%d %s] File already exists: %s", beatmapset.BeatmapsetId, typ, filename)
+		log.Info().Int("sid", beatmapset.BeatmapsetId).Str("type", typ).Msg("File already exists")
 		if item.VerifyQuickXorHash(data) {
-			log.Printf("[%d %s] File is the same: %s", beatmapset.BeatmapsetId, typ, filename)
+			log.Info().Int("sid", beatmapset.BeatmapsetId).Str("type", typ).Msg("File is the same")
 			goto skipUpload
 		}
 	}
-	log.Printf("[%d %s] Uploading %s\n", beatmap.BeatmapsetId, typ, filename)
+	log.Warn().Int("sid", beatmapset.BeatmapsetId).Str("type", typ).Msg("Uploading...")
 	err = uploadBeatmap(graph, path, filename, data)
 	if err != nil {
 		panic("[onedrive] failed to upload file: " + err.Error())
@@ -97,7 +97,7 @@ func uploadGoroutinefunc(wg *sync.WaitGroup, root string, graph *onedrive.GraphC
 	uploadSem <- struct{}{}
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("[%d] Failed upload: %s", beatmapset.BeatmapsetId, r)
+			log.Warn().Int("sid", beatmapset.BeatmapsetId).Msgf("Failed upload: %v", r)
 			retryBeatmaps = append(retryBeatmaps, beatmapset)
 		}
 	}()
@@ -152,7 +152,7 @@ func SyncNewBeatmap(metadata *Metadata, graph *onedrive.GraphClient, root string
 	for i, beatmap := range needSyncBeatmaps {
 		select {
 		case <-ctx.Done():
-			log.Println("Context canceled, stopping task creation.")
+			log.Info().Msg("Context canceled, stopping task creation.")
 			goto jumpLoop
 		default:
 		}
@@ -174,7 +174,7 @@ func SyncNewBeatmap(metadata *Metadata, graph *onedrive.GraphClient, root string
 					if strings.Contains(fmt.Sprint(r), "context canceled") {
 						return
 					}
-					log.Printf("[%d] Failed download: %s", beatmapset.BeatmapsetId, r)
+					log.Warn().Int("sid", beatmapset.BeatmapsetId).Msgf("Failed download: %v", r)
 				}
 			}()
 			defer func() { <-downloadSem }()

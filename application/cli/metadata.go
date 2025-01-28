@@ -11,7 +11,7 @@ import (
 	"github.com/MingxuanGame/OsuBeatmapSync/onedrive"
 	"github.com/MingxuanGame/OsuBeatmapSync/osu"
 	"github.com/MingxuanGame/OsuBeatmapSync/utils"
-	"log"
+	"github.com/rs/zerolog/log"
 	"os"
 	"strconv"
 	"strings"
@@ -56,7 +56,7 @@ func getNeedMakeList(graph *onedrive.GraphClient, root string, metadata *Metadat
 		if err != nil {
 			return nil, err
 		}
-		log.Println("All files count: ", len(allFiles))
+		log.Info().Msgf("All files count: %d", len(allFiles))
 		for _, file := range allFiles {
 			if file.IsFolder() || !strings.HasSuffix(file.Name, ".osz") {
 				continue
@@ -79,18 +79,18 @@ func getNeedMakeList(graph *onedrive.GraphClient, root string, metadata *Metadat
 }
 
 func makeMetadata(g *Generator, needMakeList []DriveItem, ctx context.Context) error {
-	log.Println("Need to made metadata count: ", len(needMakeList))
+	log.Info().Msgf("Need to made metadata count: %d", len(needMakeList))
 	if len(needMakeList) == 0 {
 		return nil
 	}
-	log.Printf("Generating Beatmapset: %d\n", len(needMakeList))
+	log.Info().Msgf("Generating Beatmapset: %d", len(needMakeList))
 	g.GenerateExistedFileMetadata(needMakeList)
 	metadata := g.Metadata
 	err := application.SaveMetadataToLocal(metadata)
 	if err != nil {
 		return err
 	}
-	log.Printf("Generated Beatmapset: %d\n", len(metadata.Beatmapsets))
+	log.Info().Msgf("Generated Beatmapset: %d", len(metadata.Beatmapsets))
 	select {
 	case <-ctx.Done():
 		os.Exit(0)
@@ -100,7 +100,7 @@ func makeMetadata(g *Generator, needMakeList []DriveItem, ctx context.Context) e
 		if len(g.Failed) == 0 {
 			break
 		}
-		log.Println("Failed: ", len(g.Failed))
+		log.Warn().Msgf("Failed: %d", len(g.Failed))
 		time.Sleep(time.Minute)
 		g.GenerateExistedFileMetadata(g.Failed)
 		err := application.SaveMetadataToLocal(metadata)
@@ -123,7 +123,7 @@ func MakeMetadata(ctx context.Context, tasks, worker int, start bool) error {
 	}
 
 	osuClient := osu.NewLegacyOfficialClient(config.Osu.V1ApiKey)
-	log.Println("Start making metadata...")
+	log.Info().Msg("Start making metadata...")
 	root := config.Path.Root
 	metadata, err := application.GetMetadata(client, root)
 	if err != nil {
@@ -164,7 +164,7 @@ func MakeMetadata(ctx context.Context, tasks, worker int, start bool) error {
 		_ = os.Remove(application.MetadataTempFilename)
 		_ = os.Remove(needMakeListFilename)
 	} else if start {
-		log.Println("Current worker: ", worker)
+		log.Info().Msgf("Current worker: %d", worker)
 		needMakeList, err, ok := readLocalNeedMakeList("needMakeList" + strconv.Itoa(worker) + ".json")
 		if err != nil {
 			return err
@@ -189,7 +189,7 @@ func MergeMetadata(isUpload bool, files []string) error {
 			return err
 		}
 		if !ok {
-			log.Printf("file %s not found\n", file)
+			log.Info().Msgf("file %s not found", file)
 			continue
 		}
 		if mergedMetadata.GameMode == nil {

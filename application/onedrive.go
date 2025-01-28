@@ -5,21 +5,21 @@ import (
 	. "github.com/MingxuanGame/OsuBeatmapSync/model"
 	"github.com/MingxuanGame/OsuBeatmapSync/onedrive"
 	"github.com/pelletier/go-toml/v2"
-	"log"
+	"github.com/rs/zerolog/log"
 	"os"
 )
 
 func Login(config *Config, ctx context.Context) (*onedrive.GraphClient, error) {
 	var client *onedrive.GraphClient
 	if config.OneDrive.Token.AccessToken == "" || config.OneDrive.Token.RefreshToken == "" {
-		log.Println("No existed token found, login...")
+		log.Info().Msg("No existed token found, login...")
 		var err error
 		client, err = onedrive.NewGraphClient(config.OneDrive.ClientId, config.OneDrive.ClientSecret, config.OneDrive.Tenant, ctx)
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		log.Println("Existed token found, login...")
+		log.Info().Msg("Existed token found, login...")
 		client = onedrive.NewExistedGraphClient(&config.OneDrive, ctx)
 	}
 	config.OneDrive.Token.AccessToken = client.Config.Token.AccessToken
@@ -37,13 +37,13 @@ func Login(config *Config, ctx context.Context) (*onedrive.GraphClient, error) {
 		return nil, err
 	}
 	for _, drive := range *drive {
-		log.Printf("Drive info:\n")
-		log.Printf("  Drive: %s\n", drive.Id)
-		log.Printf("  DriveType: %s\n", drive.DriveType)
-		log.Printf("  Total: %d\n", drive.Quota.Total)
-		log.Printf("  Used: %d\n", drive.Quota.Used)
-		log.Printf("  Remaining: %d\n", drive.Quota.Remaining)
+		log.Info().Msg("Drive info:")
+		log.Info().Msgf("  Drive: %s", drive.Id)
+		log.Info().Msgf("  DriveType: %s", drive.DriveType)
+		log.Info().Msgf("  Total: %d", drive.Quota.Total)
+		log.Info().Msgf("  Used: %d", drive.Quota.Used)
+		log.Info().Msgf("  Remaining: %d", drive.Quota.Remaining)
 	}
-	log.Println("Login successful...")
+	log.Info().Msg("Login successful...")
 	return client, nil
 }

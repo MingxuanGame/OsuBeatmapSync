@@ -8,7 +8,7 @@ import (
 	"github.com/MingxuanGame/OsuBeatmapSync/onedrive"
 	"github.com/MingxuanGame/OsuBeatmapSync/osu"
 	"github.com/MingxuanGame/OsuBeatmapSync/utils"
-	"log"
+	"github.com/rs/zerolog/log"
 	"strings"
 	"sync"
 	"time"
@@ -88,7 +88,7 @@ func (g *Generator) GenerateExistedFileMetadata(files []DriveItem) {
 	for _, file := range files {
 		select {
 		case <-g.ctx.Done():
-			log.Println("Context canceled, stopping task creation.")
+			log.Info().Msg("Context canceled, stopping task creation.")
 			return
 		default:
 		}
@@ -104,7 +104,7 @@ func (g *Generator) GenerateExistedFileMetadata(files []DriveItem) {
 					if strings.Contains(fmt.Sprint(r), "context canceled") {
 						return
 					}
-					log.Printf("[%s] Failed: %s", file.Name, r)
+					log.Warn().Str("filename", file.Name).Msgf("%v", r)
 				}
 			}()
 			defer func() { <-g.sem }()
@@ -175,7 +175,7 @@ func (g *Generator) GenerateExistedFileMetadata(files []DriveItem) {
 				beatmapset.Beatmaps[b.BeatmapId] = origin
 			}
 			g.Metadata.Beatmapsets[beatmapsetId] = beatmapset
-			log.Printf("Generated: %s\n", file.Name)
+			log.Info().Msgf("Generated: %s", file.Name)
 			g.mux.Unlock()
 		}(file, &wg)
 	}

@@ -5,8 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/rs/zerolog/log"
 	"io"
-	"log"
 	"math"
 	"net/http"
 	"time"
@@ -106,15 +106,15 @@ func (session *uploadSession) uploadChunkWithRetry(data []byte, retry int, serve
 	case resp.StatusCode == 404:
 		return false, fmt.Errorf("upload session not found")
 	case resp.StatusCode >= 500:
-		log.Printf("Server error, retrying in %d seconds\n", int(math.Pow(2, float64(serverFailRetry))))
+		log.Warn().Msgf("Server error, retrying in %d seconds", int(math.Pow(2, float64(serverFailRetry))))
 		time.Sleep(time.Duration(1000 * math.Pow(2, float64(serverFailRetry))))
 		return session.uploadChunkWithRetry(data, retry, serverFailRetry+1)
 	case resp.StatusCode >= 400:
-		log.Printf("Client error, retrying in 1 second (%d remaining)\n", retry-1)
+		log.Error().Msgf("Client error, retrying in 10 second (%d remaining)", retry-1)
 		if retry == 0 {
 			return false, fmt.Errorf("retry limit exceeded")
 		}
-		time.Sleep(time.Second)
+		time.Sleep(time.Second * 10)
 		return session.uploadChunkWithRetry(data, retry-1, serverFailRetry)
 	}
 	return false, nil
