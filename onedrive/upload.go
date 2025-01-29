@@ -9,6 +9,7 @@ import (
 	"io"
 	"math"
 	"net/http"
+	"net/url"
 	"time"
 )
 
@@ -41,13 +42,8 @@ func (client *GraphClient) UploadFile(path string, filename string, data []byte)
 	return nil
 }
 
-func (client *GraphClient) createUploadSession(parentId, filename, behavior string, totalSize int64) (*uploadSession, error) {
-	req, err := client.NewRequestJson("POST", fmt.Sprintf("/me/drive/items/%s/createUploadSession", parentId), map[string]interface{}{
-		//"item": map[string]interface{}{
-		"name":                              filename,
-		"@microsoft.graph.conflictBehavior": behavior,
-		//},
-	})
+func (client *GraphClient) createUploadSession(path, filename string, totalSize int64) (*uploadSession, error) {
+	req, err := client.NewRequest("POST", fmt.Sprintf("/me/drive/root:/%s:/createUploadSession", path+"/"+url.PathEscape(filename)), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -146,18 +142,8 @@ func (session *uploadSession) upload(data []byte) error {
 	return nil
 }
 
-func (client *GraphClient) UploadLargeFile(path string, filename string, data []byte) error {
-	item, err := client.GetItem(path, "")
-	if err != nil {
-		return err
-	}
-	if item == nil {
-		item, err = client.CreateFolderRecursive(path)
-		if err != nil {
-			return err
-		}
-	}
-	session, err := client.createUploadSession(item.Id, filename, "replace", int64(len(data)))
+func (client *GraphClient) UploadLargeFile(path, filename string, data []byte) error {
+	session, err := client.createUploadSession(path, filename, int64(len(data)))
 	if err != nil {
 		return err
 	}
