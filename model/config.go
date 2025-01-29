@@ -51,7 +51,12 @@ type Osu struct {
 	Sayobot  struct {
 		Server string `toml:"server"`
 	}
+	OfficialDownloader struct {
+		AccessToken  string `toml:"access_token"`
+		RefreshToken string `toml:"refresh_token"`
+	}
 	EnableSayobot  bool `toml:"enable_sayobot"`
 	EnableNerinyan bool `toml:"enable_nerinyan"`
 	EnableCatboy   bool `toml:"enable_catboy"`
+	EnableOfficial bool `toml:"enable_official"`
 }

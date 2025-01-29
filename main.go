@@ -1,4 +1,4 @@
-﻿package main
+package main
 
 import (
 	"context"
@@ -40,13 +40,54 @@ func main() {
 			{
 				Name:  "login",
 				Usage: "Login to OneDrive",
-				Action: func(context.Context, *cli.Command) error {
-					config, err := application.LoadConfig()
-					if err != nil {
-						return err
-					}
-					_, err = application.Login(&config, ctx)
-					return err
+				Commands: []*cli.Command{
+					{
+						Name:  "onedrive",
+						Usage: "Login to OneDrive",
+						Action: func(context.Context, *cli.Command) error {
+							config, err := application.LoadConfig()
+							if err != nil {
+								return err
+							}
+							_, err = application.Login(&config, ctx)
+							return err
+						},
+					},
+					{
+						Name:  "osu",
+						Usage: "Login to osu!",
+						Commands: []*cli.Command{
+							{
+								Name:  "local",
+								Usage: "Login to osu! using local osu!lazer",
+								Action: func(context.Context, *cli.Command) error {
+									return cliApp.LoginToOsuUseLocal()
+								},
+							},
+							{
+								Name:  "pwd",
+								Usage: "Login to osu! using username and password",
+								Action: func(ctx context.Context, cmd *cli.Command) error {
+									var username string
+									var password string
+									fmt.Printf("Username: ")
+									_, err := fmt.Scanln(&username)
+									if err != nil {
+										return err
+									}
+									fmt.Printf("Password: ")
+									_, err = fmt.Scanln(&password)
+									if err != nil {
+										return err
+									}
+									if username == "" || password == "" {
+										return fmt.Errorf("username or password not specified")
+									}
+									return cliApp.LoginToOsu(ctx, username, password)
+								},
+							},
+						},
+					},
 				},
 			},
 			{

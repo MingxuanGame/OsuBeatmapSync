@@ -46,6 +46,18 @@ func LoadConfig() (Config, error) {
 	return config, nil
 }
 
+func SaveConfig(config *Config) error {
+	content, err := toml.Marshal(config)
+	if err != nil {
+		return err
+	}
+	err = os.WriteFile(ConfigPath, content, 0644)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func CreateSignalCancelContext() context.Context {
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)

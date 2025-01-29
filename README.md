@@ -13,7 +13,11 @@ $ go build -o osu-beatmap-sync main.go
 - `osu-beatmap-sync`
   - `help` Show help
   - `config` Generate a default config file
-  - `login` Login to OneDrive with specified `client_id`, `client_secret` and `tenant_id` in config file
+  - `login` Login and save tokens to config file
+    - `onedrive` Login to OneDrive with specified `client_id`, `client_secret` and `tenant_id` in config file
+    - `osu`
+      - `local` Save access token and refresh token to config file from local _osu!lazer_ installation
+      - `pwd` Login to osu! with username and password
   - `sync` Sync beatmaps to OneDrive
   - `metadata`
     - `make` Generate metadata file for all beatmaps on OneDrive
@@ -42,7 +46,7 @@ tenant_id = '<your-microsoft-tenant-id>'
 
 [OneDrive.Token]
 # DO NOT fill these fields manually
-# use `osu-beatmap-sync login` to fill
+# use `osu-beatmap-sync login onedrive` to fill
 access_token = ''
 refresh_token = ''
 expires_at = 0
@@ -52,6 +56,7 @@ v1_api_key = '<your-osu-legacy-api-key>'
 enable_sayobot = true  # https://osu.sayobot.cn/
 enable_nerinyan = true  # https://nerinyan.moe/
 enable_catboy = true  # https://catboy.best/
+enable_official = true  # https://osu.ppy.sh/
 
 [Osu.Sayobot]
 # 自动 -> auto
@@ -62,6 +67,12 @@ enable_catboy = true  # https://catboy.best/
 # 德国 -> DE
 # 美国 -> USA
 server = 'auto'
+
+[Osu.OfficialDownloader]
+# DO NOT fill these fields manually
+# use `osu-beatmap-sync login osu local/pwd` to fill
+access_token = ''
+refresh_token = ''
 
 [Path]
 # Level 1

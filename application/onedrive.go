@@ -4,9 +4,7 @@ import (
 	"context"
 	. "github.com/MingxuanGame/OsuBeatmapSync/model"
 	"github.com/MingxuanGame/OsuBeatmapSync/onedrive"
-	"github.com/pelletier/go-toml/v2"
 	"github.com/rs/zerolog/log"
-	"os"
 )
 
 func Login(config *Config, ctx context.Context) (*onedrive.GraphClient, error) {
@@ -24,11 +22,7 @@ func Login(config *Config, ctx context.Context) (*onedrive.GraphClient, error) {
 	}
 	config.OneDrive.Token.AccessToken = client.Config.Token.AccessToken
 	config.OneDrive.Token.RefreshToken = client.Config.Token.RefreshToken
-	content, err := toml.Marshal(config)
-	if err != nil {
-		panic("Failed to marshal config.toml")
-	}
-	err = os.WriteFile("./config.toml", content, 0644)
+	err := SaveConfig(config)
 	if err != nil {
 		return nil, err
 	}

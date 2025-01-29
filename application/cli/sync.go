@@ -168,6 +168,14 @@ func SyncBeatmaps(ctx context.Context, tasks, worker int, start bool, since time
 	if config.Osu.EnableCatboy {
 		downloaders = append(downloaders, downloader.NewCatboyDownloader(ctx))
 	}
+	if config.Osu.EnableOfficial {
+		d, err := downloader.NewOfficialDownloader(ctx, config.Osu.OfficialDownloader.AccessToken, config.Osu.OfficialDownloader.RefreshToken)
+		if err != nil {
+			return err
+		}
+		downloaders = append(downloaders, d)
+
+	}
 	log.Info().Msg("Start Syncing...")
 	if worker == 0 {
 		sync(&config, &metadata, client, downloaders, needSyncBeatmaps, ctx)

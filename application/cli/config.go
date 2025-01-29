@@ -28,6 +28,7 @@ func GenerateConfig() error {
 			EnableSayobot:  true,
 			EnableNerinyan: true,
 			EnableCatboy:   true,
+			EnableOfficial: true,
 		},
 		Path: OneDrivePath{
 			Root:          "your_root",
