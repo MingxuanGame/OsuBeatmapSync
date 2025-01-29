@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 )
 
 const sayobotApi = `https://txy1.sayobot.cn/beatmaps/download`
@@ -19,10 +18,11 @@ type SayobotDownloader struct {
 func NewSayobotDownloader(server string, ctx context.Context) *SayobotDownloader {
 	return &SayobotDownloader{
 		client: &http.Client{
-			CheckRedirect: func(req *http.Request, via []*http.Request) error {
-				return http.ErrUseLastResponse
-			},
-		}, server: server, ctx: ctx,
+			//CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			//	return http.ErrUseLastResponse
+			//},
+		},
+		server: server, ctx: ctx,
 	}
 }
 
@@ -38,20 +38,20 @@ func (d *SayobotDownloader) download(beatmapsetId int, typ string) ([]byte, erro
 	if err != nil {
 		return nil, err
 	}
-	location, err := url.Parse(resp.Header.Get("Location"))
-	filename, err := url.QueryUnescape(location.Query().Get("filename"))
-	if err != nil {
-		return nil, err
-	}
-	newUrl := fmt.Sprintf("%s://%s%s?filename=%s", location.Scheme, location.Host, location.Path, url.QueryEscape(filename))
-	req, err = http.NewRequest("GET", newUrl, nil)
-	if err != nil {
-		return nil, err
-	}
-	resp, err = d.client.Do(req)
-	if err != nil {
-		return nil, err
-	}
+	//location, err := url.Parse(resp.Header.Get("Location"))
+	//filename, err := url.QueryUnescape(location.Query().Get("filename"))
+	//if err != nil {
+	//	return nil, err
+	//}
+	//newUrl := fmt.Sprintf("%s://%s%s?filename=%s", location.Scheme, location.Host, location.Path, url.QueryEscape(filename))
+	//req, err = http.NewRequest("GET", newUrl, nil)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//resp, err = d.client.Do(req)
+	//if err != nil {
+	//	return nil, err
+	//}
 	if resp.StatusCode != 200 {
 		return nil, fmt.Errorf("[osu! sayobot] status code: %d", resp.StatusCode)
 	}

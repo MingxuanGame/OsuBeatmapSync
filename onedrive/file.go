@@ -1,7 +1,6 @@
 package onedrive
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	. "github.com/MingxuanGame/OsuBeatmapSync/model/onedrive"
@@ -108,11 +107,13 @@ func (client *GraphClient) ListAllFiles(root string, length int) ([]DriveItem, e
 }
 
 func (client *GraphClient) MakeShareLink(item string) (string, error) {
-	req, err := client.NewRequestWithBuffer("POST", "/me/drive/items/"+item+"/createLink", bytes.NewBufferString(`{"type": "view", "scope": "anonymous"}`))
+	//req, err := client.NewRequestWithBuffer("POST", "/me/drive/items/"+item+"/createLink", bytes.NewBufferString(`{"type": "view", "scope": "anonymous"}`))
+	req, err := client.NewRequestJson("POST", "/me/drive/items/"+item+"/createLink", map[string]interface{}{
+		"type": "view", "scope": "anonymous",
+	})
 	if err != nil {
 		return "", err
 	}
-	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -163,7 +164,10 @@ func (client *GraphClient) DownloadFile(itemId string) ([]byte, error) {
 }
 
 func (client *GraphClient) GetItem(path, filename string) (*DriveItem, error) {
-	req, err := client.NewRequest("GET", "/me/drive/root:/"+path+"/"+filename+":/?select=id,name,size,file,folder,shared,parentReference", nil)
+	if filename != "" {
+		path = path + "/" + url.QueryEscape(filename)
+	}
+	req, err := client.NewRequest("GET", "/me/drive/root:/"+path+":/?select=id,name,size,file,folder,shared,parentReference", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -207,11 +211,12 @@ func (client *GraphClient) DeleteItem(itemId string) error {
 }
 
 func (client *GraphClient) MoveItem(itemId, targetId string) error {
-	req, err := client.NewRequestWithBuffer("PATCH", "/me/drive/items/"+itemId, bytes.NewBufferString(fmt.Sprintf(`{"parentReference": {"id": "%s"}}`, targetId)))
+	req, err := client.NewRequestJson("PATCH", "/me/drive/items/"+itemId, map[string]interface{}{
+		"parentReference": map[string]string{"id": targetId},
+	})
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -221,4 +226,54 @@ func (client *GraphClient) MoveItem(itemId, targetId string) error {
 		return fmt.Errorf("status code: %d", resp.StatusCode)
 	}
 	return nil
+}
+
+func (client *GraphClient) CreateFolder(parentId, name string) (*DriveItem, error) {
+	req, err := client.NewRequestJson("POST", "/me/drive/items/"+parentId+"/children", map[string]interface{}{
+		"name": name, "folder": map[string]interface{}{},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != 201 {
+		return nil, fmt.Errorf("status code: %d", resp.StatusCode)
+	}
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	var item DriveItem
+	err = json.Unmarshal(data, &item)
+	if err != nil {
+		return nil, err
+	}
+	return &item, nil
+}
+
+func (client *GraphClient) CreateFolderRecursive(path string) (*DriveItem, error) {
+	paths := strings.Split(path, "/")
+	var parentId string
+	for i, p := range paths {
+		if i == 0 {
+			parentId = "root"
+		}
+		item, err := client.GetItem(parentId, p)
+		if err != nil {
+			return nil, err
+		}
+		if item == nil {
+			item, err = client.CreateFolder(parentId, p)
+			if err != nil {
+				return nil, err
+			}
+		}
+		parentId = item.Id
+	}
+	return client.GetItem(parentId, "")
 }

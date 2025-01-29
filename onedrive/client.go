@@ -137,6 +137,19 @@ func (client *GraphClient) NewRequestWithBuffer(method, url string, data io.Read
 	return req, nil
 }
 
+func (client *GraphClient) NewRequestJson(method, url string, data interface{}) (*http.Request, error) {
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		return nil, err
+	}
+	req, err := client.NewRequest(method, url, jsonData)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	return req, nil
+}
+
 func (client *GraphClient) Do(req *http.Request) (*http.Response, error) {
 	resp, err := client.Client.Do(req)
 	if err != nil {
