@@ -125,7 +125,17 @@ func (d *OfficialDownloader) download(beatmapId int, novideo string) ([]byte, er
 	if err != nil {
 		return nil, err
 	}
-	return io.ReadAll(resp.Body)
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	if len(data) == 0 {
+		// some beatmap cannot be downloaded (like https://osu.ppy.sh/beatmapsets/30877, DMCA takedown)
+		// other api maybe return server error (5xx)
+		// osu!api return empty body
+		return nil, fmt.Errorf("empty body")
+	}
+	return data, nil
 }
 
 func (d *OfficialDownloader) DownloadBeatmapset(beatmapsetId int) ([]byte, error) {
