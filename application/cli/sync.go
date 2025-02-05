@@ -9,6 +9,8 @@ import (
 	"github.com/MingxuanGame/OsuBeatmapSync/onedrive"
 	"github.com/MingxuanGame/OsuBeatmapSync/osu"
 	downloader "github.com/MingxuanGame/OsuBeatmapSync/osu/download"
+	"github.com/MingxuanGame/OsuBeatmapSync/osu/sync"
+
 	"github.com/MingxuanGame/OsuBeatmapSync/utils"
 	"github.com/rs/zerolog/log"
 	"os"
@@ -16,7 +18,7 @@ import (
 	"time"
 )
 
-func sync(config *Config, metadata *Metadata, graph *onedrive.GraphClient, downloaders []downloader.BeatmapDownloader, needSyncBeatmaps []BeatmapsetMetadata, ctx context.Context) bool {
+func syncAllBeatmapset(config *Config, metadata *Metadata, graph *onedrive.GraphClient, downloaders []downloader.BeatmapDownloader, needSyncBeatmaps []BeatmapsetMetadata, ctx context.Context) bool {
 	modeMap := map[GameMode]string{
 		GameModeOsu:   config.Path.StdPath,
 		GameModeTaiko: config.Path.TaikoPath,
@@ -30,25 +32,28 @@ func sync(config *Config, metadata *Metadata, graph *onedrive.GraphClient, downl
 		StatusQualified: config.Path.QualifiedPath,
 	}
 
-	retry := downloader.SyncNewBeatmap(metadata, graph, config.Path.Root, downloaders, needSyncBeatmaps, config.General.MaxConcurrent, modeMap, statusMap, ctx)
+	s := sync.NewSyncer(ctx, metadata, graph, config.Path.Root, config.General.MaxConcurrent, config.General.UploadMultiple, modeMap, statusMap)
+	s.SyncNewBeatmap(downloaders, needSyncBeatmaps)
 
-	err := application.SaveMetadataToLocal(metadata)
+	err := application.SaveMetadataToLocal(s.Metadata)
 	if err != nil {
 		return false
 	}
-	select {
-	case <-ctx.Done():
-		return false
-	default:
-	}
 	for {
-		if len(retry) == 0 {
+		select {
+		case <-ctx.Done():
+			return false
+		default:
+		}
+
+		if len(s.Failed) == 0 {
 			break
 		}
-		log.Info().Msgf("Failed: %d", len(retry))
+		log.Info().Msgf("Failed: %d", len(s.Failed))
+		log.Info().Msg("Retry in 1 minute...")
 		time.Sleep(time.Minute)
-		retry = downloader.SyncNewBeatmap(metadata, graph, config.Path.Root, downloaders, retry, config.General.MaxConcurrent, modeMap, statusMap, ctx)
-		err := application.SaveMetadataToLocal(metadata)
+		s.ReSync(downloaders)
+		err := application.SaveMetadataToLocal(s.Metadata)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to save metadata")
 			return false
@@ -100,7 +105,7 @@ func getNeedSyncBeatmaps(metadata *Metadata, osuClient *osu.LegacyOfficialClient
 		}
 	}
 	log.Info().Msgf("Getting all beatmaps since %s", lastTime.Format(time.RFC3339))
-	allSyncBeatmapset, err := application.GetAllNewBeatmapset(ctx, osuClient, lastTime)
+	allSyncBeatmapset, err := application.GetAllNewBeatmapset(ctx, osuClient, &lastTime)
 	if err != nil {
 		return nil, err
 	}
@@ -137,9 +142,16 @@ func SyncBeatmaps(ctx context.Context, tasks, worker int, start bool, since time
 
 	var needSyncBeatmaps []BeatmapsetMetadata
 	if worker == 0 {
-		needSyncBeatmaps, err := getNeedSyncBeatmaps(&metadata, osuClient, ctx, since)
+		var ok bool
+		needSyncBeatmaps, err, ok = getNeedSyncBeatmapsLocal("needSync.json", &metadata)
 		if err != nil {
 			return err
+		}
+		if !ok {
+			needSyncBeatmaps, err = getNeedSyncBeatmaps(&metadata, osuClient, ctx, since)
+			if err != nil {
+				return err
+			}
 		}
 		log.Info().Msgf("Need sync: %d", len(needSyncBeatmaps))
 		if tasks > 1 {
@@ -155,6 +167,15 @@ func SyncBeatmaps(ctx context.Context, tasks, worker int, start bool, since time
 				}
 			}
 			worker = 1
+		} else {
+			saveNeedSync, err := json.Marshal(needSyncBeatmaps)
+			if err != nil {
+				return err
+			}
+			err = os.WriteFile("needSync.json", saveNeedSync, 0644)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -178,7 +199,7 @@ func SyncBeatmaps(ctx context.Context, tasks, worker int, start bool, since time
 	}
 	log.Info().Msg("Start Syncing...")
 	if worker == 0 {
-		sync(&config, &metadata, client, downloaders, needSyncBeatmaps, ctx)
+		syncAllBeatmapset(&config, &metadata, client, downloaders, needSyncBeatmaps, ctx)
 		err := application.UploadMetadata(client, config.Path.Root, &metadata)
 		if err != nil {
 			return err
@@ -192,7 +213,7 @@ func SyncBeatmaps(ctx context.Context, tasks, worker int, start bool, since time
 		if !ok {
 			return fmt.Errorf("no needSync file")
 		}
-		finished := sync(&config, &metadata, client, downloaders, needSyncBeatmaps, ctx)
+		finished := syncAllBeatmapset(&config, &metadata, client, downloaders, needSyncBeatmaps, ctx)
 		if !finished {
 			saveNeedSync, err := json.Marshal(needSyncBeatmaps)
 			if err != nil {

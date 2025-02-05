@@ -1,7 +1,8 @@
 package model
 
 type GeneralConfig struct {
-	MaxConcurrent int `toml:"max_concurrent"`
+	MaxConcurrent  int `toml:"max_concurrent"`
+	UploadMultiple int `toml:"upload_multiple"`
 }
 
 type Config struct {

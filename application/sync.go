@@ -51,7 +51,7 @@ func GetNewBeatmapset(client *osu.LegacyOfficialClient, since time.Time, lastBea
 	return lastTime, false, nil
 }
 
-func GetAllNewBeatmapset(ctx context.Context, osuClient *osu.LegacyOfficialClient, lastTime time.Time) (map[int]BeatmapsetMetadata, error) {
+func GetAllNewBeatmapset(ctx context.Context, osuClient *osu.LegacyOfficialClient, lastTime *time.Time) (map[int]BeatmapsetMetadata, error) {
 	allSyncBeatmapset := make(map[int]BeatmapsetMetadata)
 	var err error
 	for {
@@ -61,7 +61,7 @@ func GetAllNewBeatmapset(ctx context.Context, osuClient *osu.LegacyOfficialClien
 		default:
 		}
 		var isEnd bool
-		lastTime, isEnd, err = GetNewBeatmapset(osuClient, lastTime, allSyncBeatmapset)
+		*lastTime, isEnd, err = GetNewBeatmapset(osuClient, *lastTime, allSyncBeatmapset)
 		if err != nil {
 			return nil, err
 		}

@@ -8,7 +8,7 @@ import (
 	"github.com/MingxuanGame/OsuBeatmapSync/application"
 	cliApp "github.com/MingxuanGame/OsuBeatmapSync/application/cli"
 	"github.com/MingxuanGame/OsuBeatmapSync/onedrive/quickxorhash"
-	downloader "github.com/MingxuanGame/OsuBeatmapSync/osu/download"
+	downloader "github.com/MingxuanGame/OsuBeatmapSync/utils"
 	"github.com/urfave/cli/v3"
 	"os"
 	"strings"
@@ -44,7 +44,7 @@ func main() {
 					{
 						Name:  "onedrive",
 						Usage: "Login to OneDrive",
-						Action: func(context.Context, *cli.Command) error {
+						Action: func(ctx context.Context, cmd *cli.Command) error {
 							config, err := application.LoadConfig()
 							if err != nil {
 								return err

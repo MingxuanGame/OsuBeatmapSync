@@ -1,10 +1,9 @@
-package download
+package utils
 
 import (
 	"archive/zip"
 	"bytes"
 	"fmt"
-	"github.com/MingxuanGame/OsuBeatmapSync/utils"
 	"io"
 	"strings"
 )
@@ -77,15 +76,15 @@ func getStoryBoardFile(osu string) (singleFile, animationFiles []string) {
 	return
 }
 
-func ProcessBeatmapset(full []byte) (novideo, mini []byte, err error) {
+func ProcessBeatmapset(full []byte) (noVideo, mini []byte, err error) {
 	zipReader := bytes.NewReader(full)
 	reader, err := zip.NewReader(zipReader, int64(len(full)))
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot read zip file: %w", err)
 	}
 
-	var novideoBuf, miniBuf bytes.Buffer
-	novideoWriter := zip.NewWriter(&novideoBuf)
+	var noVideoBuf, miniBuf bytes.Buffer
+	noVideoWriter := zip.NewWriter(&noVideoBuf)
 	miniWriter := zip.NewWriter(&miniBuf)
 
 	// process storyboard
@@ -116,14 +115,14 @@ func ProcessBeatmapset(full []byte) (novideo, mini []byte, err error) {
 		switch {
 		case strings.HasSuffix(file.Name, ".avi") || strings.HasSuffix(file.Name, ".mp4") || strings.HasSuffix(file.Name, ".flv"):
 			continue
-		case !utils.In(backgroundFile, file.Name) && (strings.HasSuffix(file.Name, ".osb") || utils.In(singleFile, file.Name) || utils.In(animationFiles, file.Name) || utils.In(animationFiles, removeNumber(cutImageExt(file.Name)))):
-			err := copyFile(file, novideoWriter)
+		case !In(backgroundFile, file.Name) && (strings.HasSuffix(file.Name, ".osb") || In(singleFile, file.Name) || In(animationFiles, file.Name) || In(animationFiles, removeNumber(cutImageExt(file.Name)))):
+			err := copyFile(file, noVideoWriter)
 			if err != nil {
 				return nil, nil, fmt.Errorf("copy file %s error: %w", file.Name, err)
 			}
 			continue
 		default:
-			err := copyFile(file, novideoWriter)
+			err := copyFile(file, noVideoWriter)
 			if err != nil {
 				return nil, nil, fmt.Errorf("copy file %s error: %w", file.Name, err)
 			}
@@ -134,16 +133,16 @@ func ProcessBeatmapset(full []byte) (novideo, mini []byte, err error) {
 		}
 	}
 
-	err = novideoWriter.Close()
+	err = noVideoWriter.Close()
 	if err != nil {
-		return nil, nil, fmt.Errorf("cannot close novideo writer: %w", err)
+		return nil, nil, fmt.Errorf("cannot close noVideo writer: %w", err)
 	}
 	err = miniWriter.Close()
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot close mini writer: %w", err)
 	}
 
-	novideo = novideoBuf.Bytes()
+	noVideo = noVideoBuf.Bytes()
 	mini = miniBuf.Bytes()
 	return
 }

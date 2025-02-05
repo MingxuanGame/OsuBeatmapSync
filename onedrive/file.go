@@ -165,7 +165,7 @@ func (client *GraphClient) DownloadFile(itemId string) ([]byte, error) {
 
 func (client *GraphClient) GetItem(path, filename string) (*DriveItem, error) {
 	if filename != "" {
-		path = path + "/" + url.QueryEscape(filename)
+		path = path + "/" + url.PathEscape(filename)
 	}
 	req, err := client.NewRequest("GET", "/me/drive/root:/"+path+":/?select=id,name,size,file,folder,shared,parentReference", nil)
 	if err != nil {

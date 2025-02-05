@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"fmt"
 	"github.com/rs/zerolog/log"
 	"regexp"
 	"strconv"
@@ -25,4 +26,8 @@ func ParseFilename(filename string) (artist, name string, beatmapsetId int) {
 	artist = result["artist"]
 	name = result["name"]
 	return
+}
+
+func MakeFilename(beatmapsetId int, artist, name string) string {
+	return SanitizeFileName(fmt.Sprintf("%d %s - %s.osz", beatmapsetId, artist, name))
 }
