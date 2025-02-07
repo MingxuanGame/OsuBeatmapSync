@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/adrg/xdg"
+	"github.com/rs/zerolog/log"
 	"golang.org/x/oauth2"
 	"io"
 	"net/http"
@@ -18,6 +19,8 @@ const apiBase = "https://osu.ppy.sh/api/v2"
 // https://github.com/ppy/osu/blob/master/osu.Game/Online/ProductionEndpointConfiguration.cs#L11-L12
 const clientID = "5"
 const clientSecret = "FGc9GAtyHzeQDshWP5Ah7dega8hJACAJpQtw6OXk"
+
+var officialLogger = log.With().Str("module", "osu.download.official").Logger()
 
 type OfficialDownloader struct {
 	client       *http.Client
@@ -120,6 +123,7 @@ func (d *OfficialDownloader) download(beatmapId int, novideo string) ([]byte, er
 	if err != nil {
 		return nil, err
 	}
+	officialLogger.Trace().Msgf("Requesting %s %s", req.Method, req.URL.String())
 	req.Header.Set("x-api_version", apiVersion)
 	resp, err := d.client.Do(req)
 	if err != nil {

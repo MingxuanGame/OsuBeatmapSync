@@ -6,12 +6,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/MingxuanGame/OsuBeatmapSync/base_service"
 	. "github.com/MingxuanGame/OsuBeatmapSync/model"
+	. "github.com/MingxuanGame/OsuBeatmapSync/model/onedrive"
 	"github.com/MingxuanGame/OsuBeatmapSync/utils"
-	"github.com/rs/zerolog/log"
 	"golang.org/x/oauth2"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -40,6 +42,8 @@ type BatchResp struct {
 	Body    string            `json:"body"`
 }
 
+var logger = base_service.GetLogger("onedrive")
+
 func NewGraphClient(clientId string, clientSecret string, tenant string, ctx context.Context) (*GraphClient, error) {
 	conf := &oauth2.Config{
 		ClientID:     clientId,
@@ -51,8 +55,8 @@ func NewGraphClient(clientId string, clientSecret string, tenant string, ctx con
 		},
 		RedirectURL: "http://localhost:8080/callback",
 	}
-	url := conf.AuthCodeURL("state", oauth2.AccessTypeOffline)
-	log.Info().Msgf("Please visit here to login: %v", url)
+	authCodeURL := conf.AuthCodeURL("state", oauth2.AccessTypeOffline)
+	logger.Info().Msgf("Please visit here to login: %v", authCodeURL)
 
 	var code string
 	called := make(chan struct{})
@@ -69,7 +73,7 @@ func NewGraphClient(clientId string, clientSecret string, tenant string, ctx con
 	go func() {
 		err := server.ListenAndServe()
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Error().Err(err).Msg("Failed to start server:")
+			logger.Error().Err(err).Msg("Failed to start server:")
 		}
 	}()
 
@@ -130,6 +134,7 @@ func (client *GraphClient) NewRequest(method, url string, data []byte) (*http.Re
 }
 
 func (client *GraphClient) NewRequestWithBuffer(method, url string, data io.Reader) (*http.Request, error) {
+	logger.Trace().Msgf("New Request: %s %s", method, url)
 	req, err := http.NewRequestWithContext(client.ctx, method, RootUrl+url, data)
 	if err != nil {
 		return nil, err
@@ -151,6 +156,7 @@ func (client *GraphClient) NewRequestJson(method, url string, data interface{}) 
 }
 
 func (client *GraphClient) Do(req *http.Request) (*http.Response, error) {
+	logger.Trace().Msgf("Do Request: %s %s", req.Method, req.URL.String())
 	resp, err := client.Client.Do(req)
 	if err != nil {
 		return nil, err
@@ -161,7 +167,7 @@ func (client *GraphClient) Do(req *http.Request) (*http.Response, error) {
 			return nil, err
 		}
 		client.ctx = ctx
-		log.Info().Str("api", "onedrive").Msgf("Rate limited, sleeping for %s.", retryAfter)
+		logger.Info().Str("api", "onedrive").Msgf("Rate limited, sleeping for %s.", retryAfter)
 		time.Sleep(retryAfter)
 		body, err := io.ReadAll(req.Body)
 		if err != nil {
@@ -171,10 +177,39 @@ func (client *GraphClient) Do(req *http.Request) (*http.Response, error) {
 		if !ok {
 			retryUrl = req.URL.String()
 		}
-		req, err := client.NewRequest(req.Method, retryUrl, body)
-		return client.Do(req)
+		newReq, err := client.NewRequest(req.Method, retryUrl, body)
+		newReq.Header = req.Header
+		return client.Do(newReq)
 	}
 	return resp, nil
+}
+
+func (client *GraphClient) ReadData(resp *http.Response) ([]byte, error) {
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, &url.Error{
+			Op:  "",
+			URL: resp.Request.Method,
+			Err: err,
+		}
+	}
+	if resp.StatusCode >= 400 {
+		var errMsg ErrorResponse
+		err := json.Unmarshal(data, &errMsg)
+		if err == nil {
+			return nil, &url.Error{
+				Op:  "",
+				URL: resp.Request.Method,
+				Err: fmt.Errorf("status: %s, error: %s", resp.Status, errMsg.Error.Message),
+			}
+		}
+		return nil, &url.Error{
+			Op:  "",
+			URL: resp.Request.Method,
+			Err: fmt.Errorf("status code: %d", resp.StatusCode),
+		}
+	}
+	return data, nil
 }
 
 func (client *GraphClient) BatchDo(reqs []BatchReq) ([]BatchResp, error) {

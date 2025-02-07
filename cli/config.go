@@ -2,14 +2,14 @@ package cli
 
 import (
 	"fmt"
-	"github.com/MingxuanGame/OsuBeatmapSync/application"
+	"github.com/MingxuanGame/OsuBeatmapSync/base_service"
 	. "github.com/MingxuanGame/OsuBeatmapSync/model"
 	"github.com/pelletier/go-toml/v2"
 	"os"
 )
 
 func GenerateConfig() error {
-	_, err := application.LoadConfig()
+	_, err := base_service.LoadConfig()
 	if err == nil {
 		return fmt.Errorf("config file already exists")
 	}
@@ -47,7 +47,7 @@ func GenerateConfig() error {
 	if err != nil {
 		return err
 	}
-	err = os.WriteFile(application.ConfigPath, content, 0644)
+	err = os.WriteFile(base_service.ConfigPath, content, 0644)
 	if err != nil {
 		return err
 	}

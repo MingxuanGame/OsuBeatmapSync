@@ -2,7 +2,6 @@ package utils
 
 import (
 	"fmt"
-	"github.com/rs/zerolog/log"
 	"regexp"
 	"strconv"
 )
@@ -14,7 +13,6 @@ func ParseFilename(filename string) (artist, name string, beatmapsetId int) {
 	match := re.FindStringSubmatch(filename)
 	result := make(map[string]string)
 	if match == nil {
-		log.Info().Msgf("Filename not match regex: %s", filename)
 		return "", "", 0
 	}
 	for i, name := range re.SubexpNames() {

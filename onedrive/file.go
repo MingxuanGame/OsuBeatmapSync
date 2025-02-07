@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	. "github.com/MingxuanGame/OsuBeatmapSync/model/onedrive"
-	"github.com/rs/zerolog/log"
-	"io"
 	"net/url"
 	"regexp"
 	"strconv"
@@ -30,7 +28,7 @@ func (client *GraphClient) ListFiles(path string, length int, nextUrl string) (*
 		return nil, err
 	}
 
-	data, err := io.ReadAll(resp.Body)
+	data, err := client.ReadData(resp)
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +49,7 @@ func (client *GraphClient) ListFiles(path string, length int, nextUrl string) (*
 		return &files, nil
 	}
 	for {
-		log.Info().Str("path", path).Msgf("Got %d, remaining %d", len(files), length-len(files))
+		logger.Info().Str("path", path).Msgf("Got %d, remaining %d", len(files), length-len(files))
 		if response.NextItem == "" || len(files) >= length {
 			break
 		}
@@ -96,7 +94,7 @@ func (client *GraphClient) ListAllFiles(root string, length int) ([]DriveItem, e
 			defer wg.Done()
 			files, err := client.ListAllFiles(root+"/"+dir.Name, dir.Folder.ChildCount)
 			if err != nil {
-				log.Error().Err(err).Msg("Failed to list files")
+				logger.Error().Err(err).Msg("Failed to list files")
 				return
 			}
 			allFiles = append(allFiles, files...)
@@ -119,11 +117,7 @@ func (client *GraphClient) MakeShareLink(item string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if resp.StatusCode >= 400 {
-		return "", fmt.Errorf("status code: %d", resp.StatusCode)
-	}
-
-	data, err := io.ReadAll(resp.Body)
+	data, err := client.ReadData(resp)
 	if err != nil {
 		return "", err
 	}
@@ -140,7 +134,7 @@ func (client *GraphClient) MakeShareLink(item string) (string, error) {
 	if len(matches) == 0 {
 		return "", fmt.Errorf("failed to extract share link: %s", response.Link.WebUrl)
 	}
-	//log.Printf("[%s] Created Share link\n", item)
+	//logger.Printf("[%s] Created Share link\n", item)
 	return fmt.Sprintf("https://%s.sharepoint.com/personal/%s/_layouts/15/download.aspx?share=%s", matches[1], matches[2], matches[3]), nil
 }
 
@@ -155,7 +149,7 @@ func (client *GraphClient) DownloadFile(itemId string) ([]byte, error) {
 		return nil, err
 	}
 
-	data, err := io.ReadAll(resp.Body)
+	data, err := client.ReadData(resp)
 	if err != nil {
 		return nil, err
 	}
@@ -178,11 +172,8 @@ func (client *GraphClient) GetItem(path, filename string) (*DriveItem, error) {
 	}
 	if resp.StatusCode == 404 {
 		return nil, nil
-	} else if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("status code: %d", resp.StatusCode)
 	}
-
-	data, err := io.ReadAll(resp.Body)
+	data, err := client.ReadData(resp)
 	if err != nil {
 		return nil, err
 	}
@@ -204,8 +195,9 @@ func (client *GraphClient) DeleteItem(itemId string) error {
 	if err != nil {
 		return err
 	}
-	if resp.StatusCode != 204 {
-		return fmt.Errorf("status code: %d", resp.StatusCode)
+	_, err = client.ReadData(resp)
+	if err != nil {
+		return err
 	}
 	return nil
 }
@@ -222,8 +214,9 @@ func (client *GraphClient) MoveItem(itemId, targetId string) error {
 	if err != nil {
 		return err
 	}
-	if resp.StatusCode != 200 {
-		return fmt.Errorf("status code: %d", resp.StatusCode)
+	_, err = client.ReadData(resp)
+	if err != nil {
+		return err
 	}
 	return nil
 }
@@ -240,11 +233,7 @@ func (client *GraphClient) CreateFolder(parentId, name string) (*DriveItem, erro
 	if err != nil {
 		return nil, err
 	}
-	if resp.StatusCode != 201 {
-		return nil, fmt.Errorf("status code: %d", resp.StatusCode)
-	}
-
-	data, err := io.ReadAll(resp.Body)
+	data, err := client.ReadData(resp)
 	if err != nil {
 		return nil, err
 	}

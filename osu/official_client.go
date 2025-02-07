@@ -2,14 +2,16 @@ package osu
 
 import (
 	"encoding/json"
-	"fmt"
 	. "github.com/MingxuanGame/OsuBeatmapSync/model"
+	"github.com/rs/zerolog/log"
 	"io"
 	"net/http"
 	"net/url"
 	"strconv"
 	"time"
 )
+
+var logger = log.With().Str("module", "osu.legacy").Logger()
 
 // LegacyOfficialClient osu! v1 API
 type LegacyOfficialClient struct {
@@ -35,26 +37,48 @@ func (client *LegacyOfficialClient) GetBeatmap(searchParam map[string]interface{
 	for k, v := range searchParam {
 		query.Set(k, v.(string))
 	}
-	req, err := http.NewRequest("GET", "https://osu.ppy.sh/api/get_beatmaps?"+query.Encode(), nil)
+	logger.Trace().Msgf("Getting beatmaps: %v", query)
+	reqUrl := "https://osu.ppy.sh/api/get_beatmaps?" + query.Encode()
+	req, err := http.NewRequest("GET", reqUrl, nil)
 	if err != nil {
-		return nil, fmt.Errorf("[osu! legacy api] failed to create request: %w", err)
+		return nil, &url.Error{
+			Op:  "",
+			URL: reqUrl,
+			Err: err,
+		}
 	}
 
 	resp, err := client.client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("[osu! legacy api] failed to send request: %w", err)
+		return nil, &url.Error{
+			Op:  "",
+			URL: reqUrl,
+			Err: err,
+		}
 	}
 	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("[osu! legacy api] failed to get response: %s", resp.Status)
+		return nil, &url.Error{
+			Op:  "",
+			URL: reqUrl,
+			Err: err,
+		}
 	}
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("[osu! legacy api] failed to read response: %w", err)
+		return nil, &url.Error{
+			Op:  "",
+			URL: reqUrl,
+			Err: err,
+		}
 	}
 	var response []Beatmap
 	err = json.Unmarshal(data, &response)
 	if err != nil {
-		return nil, fmt.Errorf("[osu! legacy api] failed to unmarshal response: %w", err)
+		return nil, &url.Error{
+			Op:  "",
+			URL: reqUrl,
+			Err: err,
+		}
 	}
 	return &response, nil
 }

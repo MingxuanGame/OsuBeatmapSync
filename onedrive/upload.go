@@ -5,8 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/rs/zerolog/log"
-	"io"
 	"math"
 	"net/http"
 	"net/url"
@@ -36,8 +34,9 @@ func (client *GraphClient) UploadFile(path string, filename string, data []byte)
 	if err != nil {
 		return err
 	}
-	if resp.StatusCode >= 400 {
-		return fmt.Errorf("failed to upload file")
+	_, err = client.ReadData(resp)
+	if err != nil {
+		return err
 	}
 	return nil
 }
@@ -55,7 +54,7 @@ func (client *GraphClient) createUploadSession(path, filename string, totalSize 
 	if resp.StatusCode >= 400 {
 		return nil, fmt.Errorf("failed to create upload session: %d", resp.StatusCode)
 	}
-	data, err := io.ReadAll(resp.Body)
+	data, err := client.ReadData(resp)
 	if err != nil {
 		return nil, err
 	}
@@ -101,19 +100,36 @@ func (session *uploadSession) uploadChunkWithRetry(data []byte, retry int, serve
 	case resp.StatusCode == 201 || resp.StatusCode == 200:
 		return true, nil
 	case resp.StatusCode == 416:
-		return false, fmt.Errorf("chunk %d-%d is already uploaded", session.currSize, session.currSize+int64(len(data))-1)
+		return false, &url.Error{
+			Op:  "",
+			URL: req.URL.String(),
+			Err: fmt.Errorf("chunk %d-%d is already uploaded", session.currSize, session.currSize+int64(len(data))-1),
+		}
 	case resp.StatusCode == 409:
-		return false, fmt.Errorf("conflict")
+		return false, &url.Error{
+			Op:  "",
+			URL: req.URL.String(),
+			Err: fmt.Errorf("conflict"),
+		}
 	case resp.StatusCode == 404:
-		return false, fmt.Errorf("upload session not found")
+		return false,
+			&url.Error{
+				Op:  "",
+				URL: req.URL.String(),
+				Err: fmt.Errorf("upload session not found"),
+			}
 	case resp.StatusCode >= 500:
-		log.Warn().Msgf("Server error, retrying in %d seconds", int(math.Pow(2, float64(serverFailRetry))))
+		logger.Warn().Msgf("Server error, retrying in %d seconds", int(math.Pow(2, float64(serverFailRetry))))
 		time.Sleep(time.Duration(1000 * math.Pow(2, float64(serverFailRetry))))
 		return session.uploadChunkWithRetry(data, retry, serverFailRetry+1)
 	case resp.StatusCode >= 400:
-		log.Error().Msgf("Client error, retrying in 10 second (%d remaining)", retry-1)
+		logger.Error().Msgf("Client error, retrying in 10 second (%d remaining)", retry-1)
 		if retry == 0 {
-			return false, fmt.Errorf("retry limit exceeded")
+			return false, &url.Error{
+				Op:  "",
+				URL: req.URL.String(),
+				Err: fmt.Errorf("retry limit exceeded"),
+			}
 		}
 		time.Sleep(time.Second * 10)
 		return session.uploadChunkWithRetry(data, retry-1, serverFailRetry)
@@ -130,10 +146,10 @@ func (session *uploadSession) upload(data []byte) error {
 		}
 		slices = append(slices, data[i:end])
 	}
-	for i, slice := range slices {
+	for _, slice := range slices {
 		done, err := session.uploadChunkWithRetry(slice, 3, 0)
 		if err != nil {
-			return fmt.Errorf("failed to upload chunk %d: %w", i, err)
+			return err
 		}
 		if done {
 			break

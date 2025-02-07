@@ -96,6 +96,8 @@ mini = 'mini'
 
 [General]
 max_concurrent = 36
+upload_multiple = 2
+log_level = 1  # https://pkg.go.dev/github.com/rs/zerolog#Level
 ```
 
 ## License

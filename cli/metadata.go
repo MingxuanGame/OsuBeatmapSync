@@ -5,13 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/MingxuanGame/OsuBeatmapSync/application"
+	"github.com/MingxuanGame/OsuBeatmapSync/base_service"
 	. "github.com/MingxuanGame/OsuBeatmapSync/metadata"
 	. "github.com/MingxuanGame/OsuBeatmapSync/model"
 	. "github.com/MingxuanGame/OsuBeatmapSync/model/onedrive"
 	"github.com/MingxuanGame/OsuBeatmapSync/onedrive"
 	"github.com/MingxuanGame/OsuBeatmapSync/osu"
 	"github.com/MingxuanGame/OsuBeatmapSync/utils"
-	"github.com/rs/zerolog/log"
 	"os"
 	"strconv"
 	"strings"
@@ -21,6 +21,7 @@ import (
 const needMakeListFilename = "needMakeList.json"
 
 func getAllFile(graph *onedrive.GraphClient, root string) ([]DriveItem, error) {
+	logger.Trace().Str("root", root).Msg("Try to get all files from online")
 	allFiles, err := graph.ListAllFiles(root, 200)
 	if err != nil {
 		return nil, err
@@ -29,9 +30,11 @@ func getAllFile(graph *onedrive.GraphClient, root string) ([]DriveItem, error) {
 }
 
 func readLocalNeedMakeList(filename string) ([]DriveItem, error, bool) {
+	logger.Trace().Msgf("Try to read local %s", needMakeListFilename)
 	var needMakeList []DriveItem
 	savedData, err := os.ReadFile(filename)
 	if os.IsNotExist(err) {
+		logger.Trace().Msgf("File %s not found", filename)
 		return nil, nil, false
 	}
 	if err != nil {
@@ -47,6 +50,7 @@ func readLocalNeedMakeList(filename string) ([]DriveItem, error, bool) {
 }
 
 func getNeedMakeList(graph *onedrive.GraphClient, root string, metadata *Metadata) ([]DriveItem, error) {
+	logger.Trace().Msg("Try to get need make list")
 	needMakeList, err, ok := readLocalNeedMakeList(needMakeListFilename)
 	if err != nil {
 		return nil, err
@@ -56,7 +60,7 @@ func getNeedMakeList(graph *onedrive.GraphClient, root string, metadata *Metadat
 		if err != nil {
 			return nil, err
 		}
-		log.Info().Msgf("All files count: %d", len(allFiles))
+		logger.Info().Msgf("Total: %d", len(allFiles))
 		for _, file := range allFiles {
 			if file.IsFolder() || !strings.HasSuffix(file.Name, ".osz") {
 				continue
@@ -79,28 +83,28 @@ func getNeedMakeList(graph *onedrive.GraphClient, root string, metadata *Metadat
 }
 
 func makeMetadata(g *Generator, needMakeList []DriveItem, ctx context.Context) error {
-	log.Info().Msgf("Need to made metadata count: %d", len(needMakeList))
+	logger.Info().Msgf("Need to made: %d", len(needMakeList))
 	if len(needMakeList) == 0 {
 		return nil
 	}
-	log.Info().Msgf("Generating Beatmapset: %d", len(needMakeList))
+	logger.Info().Msg("Start generating...")
 	g.GenerateExistedFileMetadata(needMakeList)
 	metadata := g.Metadata
 	err := application.SaveMetadataToLocal(metadata)
 	if err != nil {
 		return err
 	}
-	log.Info().Msgf("Generated Beatmapset: %d", len(metadata.Beatmapsets))
-	select {
-	case <-ctx.Done():
-		os.Exit(0)
-	default:
-	}
+	logger.Info().Msgf("Generated: %d", len(metadata.Beatmapsets))
 	for {
+		select {
+		case <-ctx.Done():
+			os.Exit(0)
+		default:
+		}
 		if len(g.Failed) == 0 {
 			break
 		}
-		log.Warn().Msgf("Failed: %d", len(g.Failed))
+		logger.Warn().Msgf("Failed: %d", len(g.Failed))
 		time.Sleep(time.Minute)
 		g.GenerateExistedFileMetadata(g.Failed)
 		err := application.SaveMetadataToLocal(metadata)
@@ -112,7 +116,7 @@ func makeMetadata(g *Generator, needMakeList []DriveItem, ctx context.Context) e
 }
 
 func MakeMetadata(ctx context.Context, tasks, worker int, start bool) error {
-	config, err := application.LoadConfig()
+	config, err := base_service.LoadConfig()
 	if err != nil {
 		return err
 	}
@@ -123,7 +127,7 @@ func MakeMetadata(ctx context.Context, tasks, worker int, start bool) error {
 	}
 
 	osuClient := osu.NewLegacyOfficialClient(config.Osu.V1ApiKey)
-	log.Info().Msg("Start making metadata...")
+	logger.Info().Msg("Start making metadata...")
 	root := config.Path.Root
 	metadata, err := application.GetMetadata(client, root)
 	if err != nil {
@@ -134,6 +138,7 @@ func MakeMetadata(ctx context.Context, tasks, worker int, start bool) error {
 		return err
 	}
 	if tasks > 1 {
+		logger.Debug().Msgf("Splitting tasks: %d", tasks)
 		taskList := utils.SplitSlice(needMakeList, tasks)
 		for i, task := range taskList {
 			taskJson, err := json.Marshal(task)
@@ -164,7 +169,7 @@ func MakeMetadata(ctx context.Context, tasks, worker int, start bool) error {
 		_ = os.Remove(application.MetadataTempFilename)
 		_ = os.Remove(needMakeListFilename)
 	} else if start {
-		log.Info().Msgf("Current worker: %d", worker)
+		logger.Info().Msgf("Current worker: %d", worker)
 		needMakeList, err, ok := readLocalNeedMakeList("needMakeList" + strconv.Itoa(worker) + ".json")
 		if err != nil {
 			return err
@@ -181,7 +186,7 @@ func MakeMetadata(ctx context.Context, tasks, worker int, start bool) error {
 	return nil
 }
 
-func MergeMetadata(isUpload bool, files []string) error {
+func MergeMetadata(ctx context.Context, isUpload bool, files []string) error {
 	var mergedMetadata Metadata
 	for _, file := range files {
 		currMetadata, err, ok := application.ReadLocalMetadata(file)
@@ -189,7 +194,7 @@ func MergeMetadata(isUpload bool, files []string) error {
 			return err
 		}
 		if !ok {
-			log.Info().Msgf("file %s not found", file)
+			logger.Info().Msgf("file %s not found", file)
 			continue
 		}
 		if mergedMetadata.GameMode == nil {
@@ -227,12 +232,11 @@ func MergeMetadata(isUpload bool, files []string) error {
 	}
 
 	if isUpload {
-		config, err := application.LoadConfig()
+		config, err := base_service.LoadConfig()
 		if err != nil {
 			return err
 		}
 
-		ctx := application.CreateSignalCancelContext()
 		client, err := application.Login(&config, ctx)
 		err = application.UploadMetadata(client, config.Path.Root, &mergedMetadata)
 		if err != nil {

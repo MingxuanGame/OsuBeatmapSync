@@ -2,7 +2,6 @@ package model
 
 import (
 	"github.com/MingxuanGame/OsuBeatmapSync/utils"
-	"github.com/rs/zerolog/log"
 	"strings"
 )
 
@@ -29,7 +28,6 @@ func ParseFilenameStruct(path string) (*FilenameStruct, error) {
 	path = utils.Reverse(path)
 	node := strings.SplitN(path, "/", 5)
 	if len(node) != 5 {
-		log.Warn().Str("path", utils.Reverse(path)).Msg("Filename not match regex")
 		return nil, nil
 	}
 	return &FilenameStruct{

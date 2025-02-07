@@ -14,6 +14,8 @@ import (
 	"time"
 )
 
+var logger = log.With().Str("module", "osu.sync").Logger()
+
 type Syncer struct {
 	ctx            context.Context
 	graph          *onedrive.GraphClient
@@ -54,13 +56,19 @@ func (s *Syncer) makePath(gameMode GameMode, beatmapStatus BeatmapStatus, typ st
 	return path.Join(s.root, s.modeMap[gameMode], s.statusMap[beatmapStatus], typ)
 }
 
-func downloadBeatmap(downloader download.BeatmapDownloader, beatmap *BeatmapsetMetadata) ([]byte, error) {
+func downloadBeatmap(downloader download.BeatmapDownloader, beatmapset *BeatmapsetMetadata) ([]byte, error) {
+	var beatmap BeatmapMetadata
+	for _, v := range beatmapset.Beatmaps {
+		beatmap = v
+		break
+	}
+
 	var data []byte
 	var err error
-	log.Info().Str("downloader", downloader.Name()).Int("sid", beatmap.BeatmapsetId).Msg("Downloading beatmapset...")
+	logger.Info().Str("downloader", downloader.Name()).Int("sid", beatmap.BeatmapsetId).Msgf("Downloading beatmapset %s", beatmapset.String())
 	data, err = downloader.DownloadBeatmapset(beatmap.BeatmapsetId)
 	if err != nil {
-		return nil, fmt.Errorf("[%s] failed to download beatmap set: %w", downloader.Name(), err)
+		return nil, err
 	}
 	return data, nil
 }
@@ -77,12 +85,12 @@ func (s *Syncer) uploadBeatmap(beatmapset BeatmapsetMetadata, typ string, data [
 
 	item, err := s.graph.GetItem(uploadPath, filename)
 	if err != nil {
-		log.Warn().Err(err).Int("sid", beatmapset.BeatmapsetId).Str("type", typ).Msg("Failed to get item")
+		logger.Warn().Err(err).Int("sid", beatmapset.BeatmapsetId).Str("type", typ).Msgf("Failed to get item %s/%s", uploadPath, filename)
 	}
 	if item != nil {
-		log.Info().Int("sid", beatmapset.BeatmapsetId).Str("type", typ).Msg("File already exists")
+		logger.Info().Int("sid", beatmapset.BeatmapsetId).Str("type", typ).Msgf("File %s/%s already exists", uploadPath, filename)
 		if item.VerifyQuickXorHash(data) {
-			log.Info().Int("sid", beatmapset.BeatmapsetId).Str("type", typ).Msg("File is the same")
+			logger.Info().Int("sid", beatmapset.BeatmapsetId).Str("type", typ).Msgf("File %s/%s is the same, skip", uploadPath, filename)
 			goto skipUpload
 		}
 	}
@@ -98,6 +106,9 @@ skipUpload:
 		if err != nil {
 			return
 		}
+	}
+	if item == nil {
+		return "", "", fmt.Errorf("item %s/%s is not found", uploadPath, filename)
 	}
 	link, err = s.graph.MakeShareLink(item.Id)
 	if err != nil {
@@ -122,10 +133,13 @@ func (s *Syncer) uploadTask(wg *sync.WaitGroup, beatmapset BeatmapsetMetadata, d
 	defer func() { <-s.uploadSem }()
 	defer func() {
 		if r := recover(); r != nil {
-			log.Warn().Int("sid", beatmapset.BeatmapsetId).Msgf("Failed upload: %v", r)
 			s.mux.Lock()
 			s.Failed = append(s.Failed, beatmapset)
 			s.mux.Unlock()
+			if strings.Contains(fmt.Sprint(r), "context canceled") {
+				return
+			}
+			logger.Warn().Err(r.(error)).Int("sid", beatmapset.BeatmapsetId).Msgf("Failed upload %s", beatmapset.String())
 		}
 	}()
 
@@ -182,7 +196,7 @@ func (s *Syncer) syncSingleBeatmapset(wg *sync.WaitGroup, downloader download.Be
 			if strings.Contains(fmt.Sprint(r), "context canceled") {
 				return
 			}
-			log.Warn().Int("sid", beatmapset.BeatmapsetId).Msgf("Failed download: %v", r)
+			logger.Warn().Err(r.(error)).Int("sid", beatmapset.BeatmapsetId).Msgf("Failed download %s", beatmapset.String())
 		}
 	}()
 	defer wg.Done()
@@ -228,7 +242,7 @@ func (s *Syncer) SyncNewBeatmap(downloaders []download.BeatmapDownloader, needSy
 	}
 
 jumpLoop:
-	log.Info().Msg("Waiting for all tasks to finish, it may need some time...")
+	logger.Info().Msg("Waiting for all tasks to finish, it may need some time...")
 	wg.Wait()
 	clear(s.created)
 	for k, v := range s.result {

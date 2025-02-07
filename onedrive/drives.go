@@ -3,7 +3,6 @@ package onedrive
 import (
 	"encoding/json"
 	. "github.com/MingxuanGame/OsuBeatmapSync/model/onedrive"
-	"io"
 )
 
 //type IdentitySet
@@ -13,13 +12,12 @@ func (client *GraphClient) GetDrive() (*[]Drive, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
 
-	data, err := io.ReadAll(resp.Body)
+	data, err := client.ReadData(resp)
 	if err != nil {
 		return nil, err
 	}

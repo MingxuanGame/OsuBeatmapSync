@@ -1,8 +1,11 @@
 package model
 
+import "github.com/rs/zerolog"
+
 type GeneralConfig struct {
-	MaxConcurrent  int `toml:"max_concurrent"`
-	UploadMultiple int `toml:"upload_multiple"`
+	MaxConcurrent  int           `toml:"max_concurrent"`
+	UploadMultiple int           `toml:"upload_multiple"`
+	LogLevel       zerolog.Level `toml:"log_level"`
 }
 
 type Config struct {

@@ -7,10 +7,13 @@ import (
 	"github.com/rs/zerolog/log"
 	"io"
 	"net/http"
+	"net/url"
 	"time"
 )
 
 const nerinyanApi = "https://api.nerinyan.moe"
+
+var nerinyanLogger = log.With().Str("module", "osu.download.nerinyan").Logger()
 
 type NerinyanDownloader struct {
 	*http.Client
@@ -25,6 +28,7 @@ func NewNerinyanDownloader(ctx context.Context) *NerinyanDownloader {
 }
 
 func (d *NerinyanDownloader) do(req *http.Request) ([]byte, error) {
+	nerinyanLogger.Trace().Msgf("Requesting %s %s", req.Method, req.URL.String())
 	resp, err := d.Client.Do(req)
 	var data []byte
 	if err != nil {
@@ -36,7 +40,7 @@ func (d *NerinyanDownloader) do(req *http.Request) ([]byte, error) {
 			return nil, err
 		}
 		d.ctx = ctx
-		log.Warn().Str("api", "osu! nerinyan").Msgf("Rate limited, sleeping for %s.", retryAfter)
+		nerinyanLogger.Warn().Msgf("Rate limited, sleeping for %s.", retryAfter)
 		time.Sleep(retryAfter)
 		data, err = d.do(req)
 		if err != nil {
@@ -45,7 +49,11 @@ func (d *NerinyanDownloader) do(req *http.Request) ([]byte, error) {
 		return data, nil
 	}
 	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("[osu! nerinyan] status code: %d", resp.StatusCode)
+		return nil, &url.Error{
+			Op:  "",
+			URL: req.URL.String(),
+			Err: fmt.Errorf("status: %s", resp.Status),
+		}
 	}
 	data, err = io.ReadAll(resp.Body)
 	if err != nil {

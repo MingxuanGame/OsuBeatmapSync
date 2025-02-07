@@ -6,7 +6,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/MingxuanGame/OsuBeatmapSync/application"
-	cliApp "github.com/MingxuanGame/OsuBeatmapSync/application/cli"
+	"github.com/MingxuanGame/OsuBeatmapSync/base_service"
+	cli2 "github.com/MingxuanGame/OsuBeatmapSync/cli"
 	"github.com/MingxuanGame/OsuBeatmapSync/onedrive/quickxorhash"
 	downloader "github.com/MingxuanGame/OsuBeatmapSync/utils"
 	"github.com/urfave/cli/v3"
@@ -16,17 +17,13 @@ import (
 )
 
 func main() {
-	logFile, err := application.CreateLog()
-	if err != nil {
-		fmt.Println("Failed to create log file:", err)
-		return
-	}
+	base_service.CreateLog()
 	defer func(logFile *os.File) {
 		err := logFile.Close()
 		if err != nil {
 			fmt.Println("Failed to close log file:", err)
 		}
-	}(logFile)
+	}(base_service.LogFile)
 	ctx := application.CreateSignalCancelContext()
 
 	cmd := &cli.Command{
@@ -45,7 +42,7 @@ func main() {
 						Name:  "onedrive",
 						Usage: "Login to OneDrive",
 						Action: func(ctx context.Context, cmd *cli.Command) error {
-							config, err := application.LoadConfig()
+							config, err := base_service.LoadConfig()
 							if err != nil {
 								return err
 							}
@@ -61,7 +58,7 @@ func main() {
 								Name:  "local",
 								Usage: "Login to osu! using local osu!lazer",
 								Action: func(context.Context, *cli.Command) error {
-									return cliApp.LoginToOsuUseLocal()
+									return cli2.LoginToOsuUseLocal()
 								},
 							},
 							{
@@ -83,7 +80,7 @@ func main() {
 									if username == "" || password == "" {
 										return fmt.Errorf("username or password not specified")
 									}
-									return cliApp.LoginToOsu(ctx, username, password)
+									return cli2.LoginToOsu(ctx, username, password)
 								},
 							},
 						},
@@ -94,7 +91,7 @@ func main() {
 				Name:  "config",
 				Usage: "Generate config file",
 				Action: func(context.Context, *cli.Command) error {
-					err := cliApp.GenerateConfig()
+					err := cli2.GenerateConfig()
 					if err != nil {
 						return err
 					}
@@ -115,7 +112,7 @@ func main() {
 							&cli.IntFlag{Name: "worker", Aliases: []string{"w"}, Value: 0, Usage: "execute sub-task from n file"},
 						},
 						Action: func(ctx context.Context, cmd *cli.Command) error {
-							return cliApp.MakeMetadata(ctx, int(cmd.Int("tasks")), int(cmd.Int("worker")), cmd.Bool("start"))
+							return cli2.MakeMetadata(ctx, int(cmd.Int("tasks")), int(cmd.Int("worker")), cmd.Bool("start"))
 						},
 					},
 					{
@@ -125,7 +122,7 @@ func main() {
 							&cli.BoolFlag{Name: "upload", Aliases: []string{"u"}, Value: false, Usage: "upload merged metadata to OneDrive"},
 						},
 						Action: func(ctx context.Context, cmd *cli.Command) error {
-							return cliApp.MergeMetadata(cmd.Bool("upload"), cmd.Args().Slice())
+							return cli2.MergeMetadata(ctx, cmd.Bool("upload"), cmd.Args().Slice())
 						},
 					},
 				},
@@ -143,7 +140,7 @@ func main() {
 					}, Usage: "sync beatmaps since the specified time", Value: time.Now()},
 				},
 				Action: func(ctx context.Context, cmd *cli.Command) error {
-					err := cliApp.SyncBeatmaps(ctx, int(cmd.Int("tasks")), int(cmd.Int("worker")), cmd.Bool("start"), cmd.Timestamp("since"))
+					err := cli2.SyncBeatmaps(ctx, int(cmd.Int("tasks")), int(cmd.Int("worker")), cmd.Bool("start"), cmd.Timestamp("since"))
 					if err != nil {
 						return err
 					}

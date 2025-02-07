@@ -1,5 +1,7 @@
 package model
 
+import "fmt"
+
 type BeatmapMetadata struct {
 	Status        BeatmapStatus     `json:"status"`
 	Artist        string            `json:"artist"`
@@ -16,7 +18,6 @@ type BeatmapMetadata struct {
 	HasStoryboard bool              `json:"has_storyboard"`
 	HasVideo      bool              `json:"has_video"`
 }
-
 type BeatmapsetMetadata struct {
 	Beatmaps      map[int]BeatmapMetadata `json:"beatmaps"`
 	BeatmapsetId  int                     `json:"beatmapset_id"`
@@ -80,4 +81,13 @@ func (b BeatmapsetMetadata) Equal(other BeatmapsetMetadata) bool {
 		//}
 	}
 	return true
+}
+
+func (b BeatmapsetMetadata) String() string {
+	var beatmap BeatmapMetadata
+	for _, v := range b.Beatmaps {
+		beatmap = v
+		break
+	}
+	return fmt.Sprintf("%d %s - %s", b.BeatmapsetId, beatmap.Artist, beatmap.Title)
 }

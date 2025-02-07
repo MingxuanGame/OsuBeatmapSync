@@ -26,6 +26,8 @@ type Generator struct {
 	mux sync.RWMutex
 }
 
+var logger = log.With().Str("module", "metadata").Logger()
+
 func NewGenerator(client *osu.LegacyOfficialClient, graph *onedrive.GraphClient, ctx context.Context, maxConcurrency int, metadata *Metadata) *Generator {
 	return &Generator{
 		client:   client,
@@ -52,7 +54,7 @@ func (g *Generator) generateSingle(item DriveItem) (typ string, beatmaps []Beatm
 	beatmapType := fileStruct.Type
 	link, err := g.graph.MakeShareLink(item.Id)
 	if err != nil {
-		return "", nil, fmt.Errorf("[onedrive] failed to make share link: %w", err)
+		return "", nil, err
 	}
 	for _, data := range *apiData {
 		metadata := BeatmapMetadata{
@@ -88,7 +90,7 @@ func (g *Generator) GenerateExistedFileMetadata(files []DriveItem) {
 	for _, file := range files {
 		select {
 		case <-g.ctx.Done():
-			log.Info().Msg("Context canceled, stopping task creation.")
+			logger.Info().Msg("Context canceled, stopping task creation.")
 			return
 		default:
 		}
@@ -104,7 +106,7 @@ func (g *Generator) GenerateExistedFileMetadata(files []DriveItem) {
 					if strings.Contains(fmt.Sprint(r), "context canceled") {
 						return
 					}
-					log.Warn().Str("filename", file.Name).Msgf("%v", r)
+					logger.Warn().Err(r.(error)).Msgf("Failed to make metadata: %s", file.Name)
 				}
 			}()
 			defer func() { <-g.sem }()
@@ -175,7 +177,7 @@ func (g *Generator) GenerateExistedFileMetadata(files []DriveItem) {
 				beatmapset.Beatmaps[b.BeatmapId] = origin
 			}
 			g.Metadata.Beatmapsets[beatmapsetId] = beatmapset
-			log.Info().Msgf("Generated: %s", file.Name)
+			logger.Info().Msgf("Generated: %s", file.Name)
 			g.mux.Unlock()
 		}(file, &wg)
 	}

@@ -4,13 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/rs/zerolog/log"
 	"io"
 	"net/http"
+	netUrl "net/url"
 )
 
 type CatboyDownloader struct {
 	ctx context.Context
 }
+
+var catboyLogger = log.With().Str("module", "osu.download.catboy").Logger()
 
 func NewCatboyDownloader(ctx context.Context) *CatboyDownloader {
 	return &CatboyDownloader{ctx: ctx}
@@ -29,6 +33,7 @@ func (d *CatboyDownloader) download(beatmapsetId int, noVideo bool) ([]byte, err
 	if err != nil {
 		return nil, err
 	}
+	catboyLogger.Trace().Msgf("Requesting %s %s", req.Method, req.URL.String())
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -40,9 +45,17 @@ func (d *CatboyDownloader) download(beatmapsetId int, noVideo bool) ([]byte, err
 		}
 		err := json.NewDecoder(resp.Body).Decode(&responseBody)
 		if err != nil {
-			return nil, fmt.Errorf("[osu! catboy] status code: %d", resp.StatusCode)
+			return nil, &netUrl.Error{
+				Op:  "",
+				URL: req.URL.String(),
+				Err: fmt.Errorf("status: %s", resp.Status),
+			}
 		}
-		return nil, fmt.Errorf("[osu! catboy] status code: %d, error: %s", resp.StatusCode, responseBody.Error)
+		return nil, &netUrl.Error{
+			Op:  "",
+			URL: req.URL.String(),
+			Err: fmt.Errorf("status: %s, error: %s", resp.Status, responseBody.Error),
+		}
 	}
 	return io.ReadAll(resp.Body)
 }
