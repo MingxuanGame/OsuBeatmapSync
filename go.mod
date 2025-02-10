@@ -3,7 +3,6 @@ module github.com/MingxuanGame/OsuBeatmapSync
 go 1.23
 
 require (
-	github.com/adrg/xdg v0.5.3
 	github.com/ncruces/go-sqlite3 v0.22.0
 	github.com/pelletier/go-toml/v2 v2.2.3
 	github.com/rs/zerolog v1.33.0

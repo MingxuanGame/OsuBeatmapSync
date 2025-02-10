@@ -1,15 +1,17 @@
 package download
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
-	"github.com/adrg/xdg"
+	"github.com/MingxuanGame/OsuBeatmapSync/utils"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/oauth2"
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -78,22 +80,31 @@ func NewOfficialDownloaderLogin(ctx context.Context, username, password string) 
 
 // GetAccessTokenFromLocal get the access token & refresh token from local osu!lazer
 func GetAccessTokenFromLocal() (string, string, error) {
-	defaultPath, err := xdg.DataFile("osu")
-	if err != nil {
-		return "", "", err
-	}
-	storage, err := os.ReadFile(defaultPath + "/storage.ini")
+	defaultPath := utils.XDGDataHome("osu")
+	storage, err := os.Open(filepath.Join(defaultPath, "storage.ini"))
+	defer func(storage *os.File) {
+		err := storage.Close()
+		if err != nil {
+			officialLogger.Error().Err(err).Msg("failed to close storage file")
+		}
+	}(storage)
 	ok := err == nil
+	storageReader := bufio.NewReader(storage)
 	if ok {
-		lines := strings.Split(string(storage), "\n")
-		for _, file := range lines {
+		for {
+			b, _, err := storageReader.ReadLine()
+			if err != nil {
+				return "", "", err
+			}
+			file := string(b)
 			if strings.Contains(file, "FullPath") {
 				defaultPath = strings.Replace(strings.Split(file, "=")[1], " ", "", -1)
+				break
 			}
 		}
 	}
 
-	config, err := os.ReadFile(defaultPath + "/game.ini")
+	config, err := os.ReadFile(filepath.Join(defaultPath, "game.ini"))
 	if err != nil {
 		return "", "", err
 	}
