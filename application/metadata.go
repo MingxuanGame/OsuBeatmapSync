@@ -6,6 +6,7 @@ import (
 	. "github.com/MingxuanGame/OsuBeatmapSync/model/onedrive"
 	"github.com/MingxuanGame/OsuBeatmapSync/onedrive"
 	"github.com/MingxuanGame/OsuBeatmapSync/sql"
+	"github.com/rs/zerolog/log"
 	"os"
 )
 
@@ -17,13 +18,25 @@ func getMetadataFromRemote(graph *onedrive.GraphClient, root string) (Metadata, 
 		Beatmaps:    make(map[int]BeatmapMetadata),
 		Beatmapsets: make(map[int]BeatmapsetMetadata),
 	}
+	item, err := graph.GetItem(root, "")
+	if err != nil {
+		return Metadata{}, err
+	}
+	if item == nil {
+		log.Info().Msg("Root folder not found, creating...")
+		_, err = graph.CreateFolderRecursive(root)
+		if err != nil {
+			return Metadata{}, err
+		}
+	}
+
 	files, err := graph.ListFiles(root, 200, "")
 	if err != nil {
 		return Metadata{}, err
 	}
 	var metadataFile DriveItem
 	if files == nil {
-		logger.Error().Msg("No existed metadata file found")
+		logger.Info().Msg("No existed metadata file found")
 		return metadata, nil
 	}
 	for _, file := range *files {
