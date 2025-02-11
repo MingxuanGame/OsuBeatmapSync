@@ -4,6 +4,7 @@ import (
 	"context"
 	. "github.com/MingxuanGame/OsuBeatmapSync/model"
 	"github.com/MingxuanGame/OsuBeatmapSync/osu"
+	"github.com/rs/zerolog/log"
 	"time"
 )
 
@@ -68,6 +69,7 @@ func GetAllNewBeatmapset(ctx context.Context, osuClient *osu.LegacyOfficialClien
 		}
 		var isEnd bool
 		*lastTime, isEnd, err = GetNewBeatmapset(osuClient, *lastTime, allSyncBeatmapset)
+		log.Info().Msgf("  To: %s, total: %d", lastTime.Format(time.DateTime), len(allSyncBeatmapset))
 		if err != nil {
 			return nil, err
 		}
