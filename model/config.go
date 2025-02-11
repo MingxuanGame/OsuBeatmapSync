@@ -1,11 +1,9 @@
 package model
 
-import "github.com/rs/zerolog"
-
 type GeneralConfig struct {
-	MaxConcurrent  int           `toml:"max_concurrent"`
-	UploadMultiple int           `toml:"upload_multiple"`
-	LogLevel       zerolog.Level `toml:"log_level"`
+	MaxConcurrent  int  `toml:"max_concurrent"`
+	UploadMultiple int  `toml:"upload_multiple"`
+	LogLevel       int8 `toml:"log_level"`
 }
 
 type Config struct {
@@ -43,11 +41,6 @@ type OneDrivePath struct {
 	RankedPath    string `toml:"ranked"`
 	LovedPath     string `toml:"loved"`
 	QualifiedPath string `toml:"qualified"`
-
-	// Level 4
-	FullPath    string `toml:"full"`
-	NoVideoPath string `toml:"no_video"`
-	MiniPath    string `toml:"mini"`
 }
 
 type Osu struct {
@@ -59,8 +52,9 @@ type Osu struct {
 		AccessToken  string `toml:"access_token"`
 		RefreshToken string `toml:"refresh_token"`
 	}
-	EnableSayobot  bool `toml:"enable_sayobot"`
-	EnableNerinyan bool `toml:"enable_nerinyan"`
-	EnableCatboy   bool `toml:"enable_catboy"`
-	EnableOfficial bool `toml:"enable_official"`
+	EnableSayobot  bool     `toml:"enable_sayobot"`
+	EnableNerinyan bool     `toml:"enable_nerinyan"`
+	EnableCatboy   bool     `toml:"enable_catboy"`
+	EnableOfficial bool     `toml:"enable_official"`
+	ProcessTypes   []string `toml:"process_types"`
 }

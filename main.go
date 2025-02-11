@@ -9,7 +9,7 @@ import (
 	"github.com/MingxuanGame/OsuBeatmapSync/base_service"
 	cli2 "github.com/MingxuanGame/OsuBeatmapSync/cli"
 	"github.com/MingxuanGame/OsuBeatmapSync/onedrive/quickxorhash"
-	downloader "github.com/MingxuanGame/OsuBeatmapSync/utils"
+	"github.com/MingxuanGame/OsuBeatmapSync/utils/beatmap_processing"
 	"github.com/urfave/cli/v3"
 	"os"
 	"strings"
@@ -154,6 +154,13 @@ func main() {
 					{
 						Name:  "process",
 						Usage: "process beatmap to no-video and mini",
+						Flags: []cli.Flag{
+							&cli.BoolFlag{Name: "no-video", Aliases: []string{"nv"}, Value: false, Usage: "remove video"},
+							&cli.BoolFlag{Name: "mini", Aliases: []string{"m"}, Value: false, Usage: "mini"},
+							&cli.BoolFlag{Name: "no-hitsound", Aliases: []string{"nh"}, Value: false, Usage: "remove hit sound"},
+							&cli.BoolFlag{Name: "no-storyboard", Aliases: []string{"ns"}, Value: false, Usage: "remove storyboard"},
+							&cli.BoolFlag{Name: "no-bg", Aliases: []string{"nb"}, Value: false, Usage: "remove background image"},
+						},
 						Action: func(ctx context.Context, cmd *cli.Command) error {
 							files := cmd.Args().Slice()
 							if len(files) == 0 {
@@ -165,20 +172,31 @@ func main() {
 									fmt.Println(err)
 									continue
 								}
-								novideo, mini, err := downloader.ProcessBeatmapset(data)
-								if err != nil {
-									fmt.Println(err)
-									continue
+								var process []beatmap_processing.Processor
+								if cmd.Bool("no-video") {
+									process = append(process, beatmap_processing.NewNoVideoProcessor())
 								}
-								err = os.WriteFile(fmt.Sprintf("%s [%s].osz", strings.TrimSuffix(arg, ".osz"), "no video"), novideo, 0666)
-								if err != nil {
-									fmt.Println(err)
-									continue
+								if cmd.Bool("mini") {
+									process = append(process, beatmap_processing.NewMiniProcessor())
 								}
-								err = os.WriteFile(fmt.Sprintf("%s [%s].osz", strings.TrimSuffix(arg, ".osz"), "mini"), mini, 0666)
-								if err != nil {
-									fmt.Println(err)
-									continue
+								if cmd.Bool("no-hitsound") {
+									process = append(process, beatmap_processing.NewNoHitSoundProcessor())
+								}
+								if cmd.Bool("no-storyboard") {
+									process = append(process, beatmap_processing.NewNoStoryboardProcessor())
+								}
+								if cmd.Bool("no-bg") {
+									process = append(process, beatmap_processing.NewNoBackgroundProcessor())
+								}
+								for _, typ := range process {
+									processed, err := beatmap_processing.Process(typ, data)
+									filename := fmt.Sprintf("%s [%s].osz", strings.TrimSuffix(arg, ".osz"), typ)
+									err = os.WriteFile(filename, processed, 0666)
+									if err != nil {
+										fmt.Println(err)
+										continue
+									}
+									fmt.Printf("Processed: %s\n", filename)
 								}
 							}
 							return nil

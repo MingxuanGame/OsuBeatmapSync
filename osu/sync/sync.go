@@ -7,6 +7,7 @@ import (
 	"github.com/MingxuanGame/OsuBeatmapSync/onedrive"
 	"github.com/MingxuanGame/OsuBeatmapSync/osu/download"
 	"github.com/MingxuanGame/OsuBeatmapSync/utils"
+	"github.com/MingxuanGame/OsuBeatmapSync/utils/beatmap_processing"
 	"github.com/rs/zerolog/log"
 	"path"
 	"strings"
@@ -17,13 +18,11 @@ import (
 var logger = log.With().Str("module", "osu.sync").Logger()
 
 type Syncer struct {
-	ctx            context.Context
-	graph          *onedrive.GraphClient
-	root           string
-	uploadMultiple int
-	maxConcurrency int
-	modeMap        map[GameMode]string
-	statusMap      map[BeatmapStatus]string
+	ctx       context.Context
+	graph     *onedrive.GraphClient
+	config    *Config
+	modeMap   map[GameMode]string
+	statusMap map[BeatmapStatus]string
 
 	Metadata *Metadata
 	Failed   []BeatmapsetMetadata
@@ -35,25 +34,35 @@ type Syncer struct {
 	result      map[int]BeatmapsetMetadata
 }
 
-func NewSyncer(ctx context.Context, metadata *Metadata, graph *onedrive.GraphClient, root string, maxConcurrency, uploadMultiple int, modeMap map[GameMode]string, statusMap map[BeatmapStatus]string) *Syncer {
+func NewSyncer(ctx context.Context, metadata *Metadata, graph *onedrive.GraphClient, config *Config) *Syncer {
+	modeMap := map[GameMode]string{
+		GameModeOsu:   config.Path.StdPath,
+		GameModeTaiko: config.Path.TaikoPath,
+		GameModeCtb:   config.Path.CatchPath,
+		GameModeMania: config.Path.ManiaPath,
+	}
+	statusMap := map[BeatmapStatus]string{
+		StatusRanked:    config.Path.RankedPath,
+		StatusLoved:     config.Path.LovedPath,
+		StatusApproved:  config.Path.RankedPath,
+		StatusQualified: config.Path.QualifiedPath,
+	}
 	return &Syncer{
-		ctx:            ctx,
-		Metadata:       metadata,
-		graph:          graph,
-		root:           root,
-		maxConcurrency: maxConcurrency,
-		uploadMultiple: uploadMultiple,
-		modeMap:        modeMap,
-		statusMap:      statusMap,
-		downloadSem:    make(chan struct{}, maxConcurrency),
-		uploadSem:      make(chan struct{}, maxConcurrency),
-		created:        make(map[int]struct{}),
-		result:         make(map[int]BeatmapsetMetadata),
+		ctx:         ctx,
+		Metadata:    metadata,
+		graph:       graph,
+		config:      config,
+		modeMap:     modeMap,
+		statusMap:   statusMap,
+		downloadSem: make(chan struct{}, config.General.MaxConcurrent),
+		uploadSem:   make(chan struct{}, config.General.MaxConcurrent),
+		created:     make(map[int]struct{}),
+		result:      make(map[int]BeatmapsetMetadata),
 	}
 }
 
 func (s *Syncer) makePath(gameMode GameMode, beatmapStatus BeatmapStatus, typ string) string {
-	return path.Join(s.root, s.modeMap[gameMode], s.statusMap[beatmapStatus], typ)
+	return path.Join(s.config.Path.Root, s.modeMap[gameMode], s.statusMap[beatmapStatus], typ)
 }
 
 func downloadBeatmap(downloader download.BeatmapDownloader, beatmapset *BeatmapsetMetadata) ([]byte, error) {
@@ -120,9 +129,6 @@ skipUpload:
 }
 
 func (s *Syncer) uploadTask(wg *sync.WaitGroup, beatmapset BeatmapsetMetadata, data []byte) {
-	var noVideoData, miniData []byte
-	var err error
-
 	defer wg.Done()
 	defer func() {
 		s.mux.Lock()
@@ -143,36 +149,45 @@ func (s *Syncer) uploadTask(wg *sync.WaitGroup, beatmapset BeatmapsetMetadata, d
 		}
 	}()
 
-	if beatmapset.HasVideo || beatmapset.HasStoryboard {
-		noVideoData, miniData, err = utils.ProcessBeatmapset(data)
-		if err != nil {
-			panic(fmt.Errorf("failed to process beatmapset: %w", err))
-		}
+	var processors []beatmap_processing.Processor
+	if (beatmapset.HasVideo || beatmapset.HasStoryboard) && utils.In(s.config.Osu.ProcessTypes, "mini") {
+		processors = append(processors, beatmap_processing.NewMiniProcessor())
 	}
+	if beatmapset.HasVideo && utils.In(s.config.Osu.ProcessTypes, "no_video") {
+		processors = append(processors, beatmap_processing.NewNoVideoProcessor())
+
+	}
+	if beatmapset.HasStoryboard && utils.In(s.config.Osu.ProcessTypes, "no_storyboard") {
+		processors = append(processors, beatmap_processing.NewNoStoryboardProcessor())
+	}
+	if utils.In(s.config.Osu.ProcessTypes, "no_hit_sound") {
+		processors = append(processors, beatmap_processing.NewNoHitSoundProcessor())
+	}
+	if utils.In(s.config.Osu.ProcessTypes, "no_bg") {
+		processors = append(processors, beatmap_processing.NewNoBackgroundProcessor())
+	}
+
 	linkMap := make(map[string]string)
 	pathMap := make(map[string]string)
-	var link, cloudPath string
-	link, cloudPath, err = s.uploadBeatmap(beatmapset, "full", data)
+	link, cloudPath, err := s.uploadBeatmap(beatmapset, "full", data)
 	if err != nil {
 		panic(err)
 	}
 	linkMap["full"] = link
 	pathMap["full"] = cloudPath
-	if beatmapset.HasVideo {
-		link, cloudPath, err = s.uploadBeatmap(beatmapset, "no_video", noVideoData)
+	for _, p := range processors {
+		logger.Debug().Msgf("Processing %s with mode %s", beatmapset.String(), p.String())
+		processed, err := beatmap_processing.Process(p, data)
 		if err != nil {
 			panic(err)
 		}
-		linkMap["no_video"] = link
-		pathMap["no_video"] = cloudPath
-	}
-	if beatmapset.HasStoryboard {
-		link, cloudPath, err = s.uploadBeatmap(beatmapset, "mini", miniData)
+		typ := p.String()
+		link, cloudPath, err = s.uploadBeatmap(beatmapset, typ, processed)
 		if err != nil {
 			panic(err)
 		}
-		linkMap["mini"] = link
-		pathMap["mini"] = cloudPath
+		linkMap[typ] = link
+		pathMap[typ] = cloudPath
 	}
 
 	for _, v := range beatmapset.Beatmaps {
@@ -184,6 +199,7 @@ func (s *Syncer) uploadTask(wg *sync.WaitGroup, beatmapset BeatmapsetMetadata, d
 	s.mux.Lock()
 	s.result[beatmapset.BeatmapsetId] = beatmapset
 	s.mux.Unlock()
+	logger.Info().Int("sid", beatmapset.BeatmapsetId).Msgf("Upload %s successfully", beatmapset.String())
 }
 
 func (s *Syncer) syncSingleBeatmapset(wg *sync.WaitGroup, downloader download.BeatmapDownloader, beatmapset BeatmapsetMetadata) {
@@ -217,7 +233,7 @@ func (s *Syncer) syncSingleBeatmapset(wg *sync.WaitGroup, downloader download.Be
 		default:
 
 		}
-		if len(s.created) < s.maxConcurrency*s.uploadMultiple {
+		if len(s.created) < s.config.General.MaxConcurrent*s.config.General.UploadMultiple {
 			break
 		}
 		time.Sleep(time.Second)

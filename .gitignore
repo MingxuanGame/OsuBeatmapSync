@@ -112,4 +112,5 @@ metadata.json
 needSync*
 allFiles.json
 needMakeList.json
+log-*.log
 log-*.txt

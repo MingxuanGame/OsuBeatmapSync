@@ -19,7 +19,7 @@ func CreateLog() {
 	}
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 	zerolog.SetGlobalLevel(LogLevel)
-	file, err := os.OpenFile(fmt.Sprintf("log-%s.txt", time.Now().Format(time.DateOnly)), os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
+	file, err := os.OpenFile(fmt.Sprintf("log-%s.log", time.Now().Format(time.DateOnly)), os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
 	if err != nil {
 		panic(err)
 	}

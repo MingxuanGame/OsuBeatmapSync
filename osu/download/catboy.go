@@ -22,14 +22,8 @@ func NewCatboyDownloader(ctx context.Context) *CatboyDownloader {
 
 const catboyApi = "https://catboy.best"
 
-func (d *CatboyDownloader) download(beatmapsetId int, noVideo bool) ([]byte, error) {
-	var url string
-	if noVideo {
-		url = fmt.Sprintf("%s/d/%dn", catboyApi, beatmapsetId)
-	} else {
-		url = fmt.Sprintf("%s/d/%d", catboyApi, beatmapsetId)
-	}
-	req, err := http.NewRequestWithContext(d.ctx, "GET", url, nil)
+func (d *CatboyDownloader) DownloadBeatmapset(beatmapsetId int) ([]byte, error) {
+	req, err := http.NewRequestWithContext(d.ctx, "GET", fmt.Sprintf("%s/d/%d", catboyApi, beatmapsetId), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -58,18 +52,6 @@ func (d *CatboyDownloader) download(beatmapsetId int, noVideo bool) ([]byte, err
 		}
 	}
 	return io.ReadAll(resp.Body)
-}
-
-func (d *CatboyDownloader) DownloadBeatmapset(beatmapsetId int) ([]byte, error) {
-	return d.download(beatmapsetId, false)
-}
-
-func (d *CatboyDownloader) DownloadBeatmapsetNoVideo(beatmapsetId int) ([]byte, error) {
-	return d.download(beatmapsetId, true)
-}
-
-func (d *CatboyDownloader) DownloadBeatmapsetMini(beatmapsetId int) ([]byte, error) {
-	return d.download(beatmapsetId, true)
 }
 
 func (d *CatboyDownloader) Name() string {

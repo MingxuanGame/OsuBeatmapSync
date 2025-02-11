@@ -5,6 +5,7 @@ import (
 	"github.com/MingxuanGame/OsuBeatmapSync/base_service"
 	. "github.com/MingxuanGame/OsuBeatmapSync/model"
 	"github.com/pelletier/go-toml/v2"
+	"github.com/rs/zerolog"
 	"os"
 )
 
@@ -14,7 +15,7 @@ func GenerateConfig() error {
 		return fmt.Errorf("config file already exists")
 	}
 	config := Config{
-		General: GeneralConfig{MaxConcurrent: 20},
+		General: GeneralConfig{MaxConcurrent: 20, UploadMultiple: 2, LogLevel: int8(zerolog.InfoLevel)},
 		OneDrive: OneDrive{
 			ClientId:     "your_client_id",
 			ClientSecret: "your_client_secret",
@@ -29,6 +30,7 @@ func GenerateConfig() error {
 			EnableNerinyan: true,
 			EnableCatboy:   true,
 			EnableOfficial: true,
+			ProcessTypes:   []string{},
 		},
 		Path: OneDrivePath{
 			Root:          "your_root",
@@ -39,9 +41,6 @@ func GenerateConfig() error {
 			RankedPath:    "ranked",
 			LovedPath:     "loved",
 			QualifiedPath: "qualified",
-			FullPath:      "full",
-			NoVideoPath:   "no_video",
-			MiniPath:      "mini",
 		}}
 	content, err := toml.Marshal(config)
 	if err != nil {

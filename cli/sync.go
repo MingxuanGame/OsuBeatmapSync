@@ -18,20 +18,8 @@ import (
 )
 
 func syncAllBeatmapset(config *Config, metadata *Metadata, graph *onedrive.GraphClient, downloaders []downloader.BeatmapDownloader, needSyncBeatmaps []BeatmapsetMetadata, ctx context.Context) bool {
-	modeMap := map[GameMode]string{
-		GameModeOsu:   config.Path.StdPath,
-		GameModeTaiko: config.Path.TaikoPath,
-		GameModeCtb:   config.Path.CatchPath,
-		GameModeMania: config.Path.ManiaPath,
-	}
-	statusMap := map[BeatmapStatus]string{
-		StatusRanked:    config.Path.RankedPath,
-		StatusLoved:     config.Path.LovedPath,
-		StatusApproved:  config.Path.RankedPath,
-		StatusQualified: config.Path.QualifiedPath,
-	}
 
-	s := sync.NewSyncer(ctx, metadata, graph, config.Path.Root, config.General.MaxConcurrent, config.General.UploadMultiple, modeMap, statusMap)
+	s := sync.NewSyncer(ctx, metadata, graph, config)
 	s.SyncNewBeatmap(downloaders, needSyncBeatmaps)
 
 	err := application.SaveMetadataToLocal(s.Metadata)

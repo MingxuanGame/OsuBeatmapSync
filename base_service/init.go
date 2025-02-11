@@ -7,7 +7,7 @@ func init() {
 	if err != nil {
 		LogLevel = zerolog.InfoLevel
 	} else {
-		LogLevel = config.General.LogLevel
+		LogLevel = zerolog.Level(config.General.LogLevel)
 	}
 	GlobalConfig = &config
 }

@@ -57,6 +57,7 @@ enable_sayobot = true  # https://osu.sayobot.cn/
 enable_nerinyan = true  # https://nerinyan.moe/
 enable_catboy = true  # https://catboy.best/
 enable_official = true  # https://osu.ppy.sh/
+process_types = []  # no_video, no_storyboard, no_bg, no_hit_sound, mini
 
 [Osu.Sayobot]
 # 自动 -> auto
@@ -88,11 +89,6 @@ mania = 'mania'
 ranked = 'ranked'
 loved = 'loved'
 qualified = 'qualified'
-
-# Level 4 <type>
-full = 'full'
-no_video = 'no_video'
-mini = 'mini'
 
 [General]
 max_concurrent = 36

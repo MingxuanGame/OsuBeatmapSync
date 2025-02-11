@@ -38,6 +38,12 @@ func GetNewBeatmapset(client *osu.LegacyOfficialClient, since time.Time, lastBea
 			HasStoryboard: info.HasStoryBoard == 1,
 			HasVideo:      info.HasVideo == 1,
 		}
+		if beatmap.HasVideo {
+			beatmapset.HasVideo = true
+		}
+		if beatmap.HasStoryboard {
+			beatmapset.HasStoryboard = true
+		}
 		beatmapset.Beatmaps[info.BeatmapId] = beatmap
 		lastBeatmapsetInfo[info.BeatmapsetId] = beatmapset
 		currentTime, err := time.Parse(time.DateTime, info.ApprovedDate)

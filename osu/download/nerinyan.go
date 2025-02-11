@@ -62,24 +62,12 @@ func (d *NerinyanDownloader) do(req *http.Request) ([]byte, error) {
 	return data, nil
 }
 
-func (d *NerinyanDownloader) download(beatmapsetId int, noStoryBoard bool, noVideo bool) ([]byte, error) {
-	req, err := http.NewRequestWithContext(d.ctx, "GET", fmt.Sprintf("%s/d/%d?NoStoryboard=%t&noVideo=%t", nerinyanApi, beatmapsetId, noStoryBoard, noVideo), nil)
+func (d *NerinyanDownloader) DownloadBeatmapset(beatmapsetId int) ([]byte, error) {
+	req, err := http.NewRequestWithContext(d.ctx, "GET", fmt.Sprintf("%s/d/%d", nerinyanApi, beatmapsetId), nil)
 	if err != nil {
 		return nil, err
 	}
 	return d.do(req)
-}
-
-func (d *NerinyanDownloader) DownloadBeatmapset(setId int) ([]byte, error) {
-	return d.download(setId, false, false)
-}
-
-func (d *NerinyanDownloader) DownloadBeatmapsetNoVideo(setId int) ([]byte, error) {
-	return d.download(setId, false, true)
-}
-
-func (d *NerinyanDownloader) DownloadBeatmapsetMini(setId int) ([]byte, error) {
-	return d.download(setId, true, true)
 }
 
 func (d *NerinyanDownloader) Name() string {

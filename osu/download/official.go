@@ -128,9 +128,9 @@ func (d *OfficialDownloader) Name() string {
 	return "official"
 }
 
-func (d *OfficialDownloader) download(beatmapId int, novideo string) ([]byte, error) {
+func (d *OfficialDownloader) DownloadBeatmapset(beatmapId int) ([]byte, error) {
 	// https://github.com/ppy/osu/blob/master/osu.Game/Online/API/Requests/DownloadBeatmapSetRequest.cs#L28
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/beatmapsets/%d/download?noVideo=%s", apiBase, beatmapId, novideo), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/beatmapsets/%d/download", apiBase, beatmapId), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -151,16 +151,4 @@ func (d *OfficialDownloader) download(beatmapId int, novideo string) ([]byte, er
 		return nil, fmt.Errorf("empty body")
 	}
 	return data, nil
-}
-
-func (d *OfficialDownloader) DownloadBeatmapset(beatmapsetId int) ([]byte, error) {
-	return d.download(beatmapsetId, "")
-}
-
-func (d *OfficialDownloader) DownloadBeatmapsetNoVideo(beatmapsetId int) ([]byte, error) {
-	return d.download(beatmapsetId, "1")
-}
-
-func (d *OfficialDownloader) DownloadBeatmapsetMini(beatmapsetId int) ([]byte, error) {
-	return d.download(beatmapsetId, "1")
 }

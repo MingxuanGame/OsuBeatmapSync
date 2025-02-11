@@ -30,8 +30,8 @@ func NewSayobotDownloader(server string, ctx context.Context) *SayobotDownloader
 	}
 }
 
-func (d *SayobotDownloader) download(beatmapsetId int, typ string) ([]byte, error) {
-	req, err := http.NewRequestWithContext(d.ctx, "GET", fmt.Sprintf("%s/%s/%d?server=%s", sayobotApi, typ, beatmapsetId, d.server), nil)
+func (d *SayobotDownloader) DownloadBeatmapset(beatmapsetId int) ([]byte, error) {
+	req, err := http.NewRequestWithContext(d.ctx, "GET", fmt.Sprintf("%s/full/%d?server=%s", sayobotApi, beatmapsetId, d.server), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -64,18 +64,6 @@ func (d *SayobotDownloader) download(beatmapsetId int, typ string) ([]byte, erro
 		}
 	}
 	return io.ReadAll(resp.Body)
-}
-
-func (d *SayobotDownloader) DownloadBeatmapset(beatmapsetId int) ([]byte, error) {
-	return d.download(beatmapsetId, "full")
-}
-
-func (d *SayobotDownloader) DownloadBeatmapsetNoVideo(beatmapsetId int) ([]byte, error) {
-	return d.download(beatmapsetId, "novideo")
-}
-
-func (d *SayobotDownloader) DownloadBeatmapsetMini(beatmapsetId int) ([]byte, error) {
-	return d.download(beatmapsetId, "mini")
 }
 
 func (d *SayobotDownloader) Name() string {
