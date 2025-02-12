@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	netUrl "net/url"
+	"strings"
 )
 
 const sayobotApi = `https://txy1.sayobot.cn/beatmaps/download`
@@ -56,14 +57,22 @@ func (d *SayobotDownloader) DownloadBeatmapset(beatmapsetId int) ([]byte, error)
 	if err != nil {
 		return nil, err
 	}
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
 	if resp.StatusCode != 200 {
 		return nil, &netUrl.Error{
 			Op:  resp.Request.Method,
 			URL: resp.Request.URL.String(),
-			Err: fmt.Errorf("status: %s", resp.Status),
+			//-1 = 服务器资源不足
+			//-2 = 读取失败
+			//-3 = ppy不给下载
+			//-4 = 不知道发生了什么
+			Err: fmt.Errorf("status: %s, %s", resp.Status, strings.Split(string(data), "\n")[9]),
 		}
 	}
-	return io.ReadAll(resp.Body)
+	return data, nil
 }
 
 func (d *SayobotDownloader) Name() string {
