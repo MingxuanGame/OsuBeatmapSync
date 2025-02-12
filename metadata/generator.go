@@ -11,7 +11,6 @@ import (
 	"github.com/rs/zerolog/log"
 	"strings"
 	"sync"
-	"time"
 )
 
 type Generator struct {
@@ -58,27 +57,16 @@ func (g *Generator) generateSingle(item DriveItem) (typ string, beatmaps []Beatm
 	}
 	for _, data := range *apiData {
 		metadata := BeatmapMetadata{
-			Artist:        data.Artist,
-			Title:         data.Title,
-			ArtistUnicode: data.ArtistUnicode,
-			TitleUnicode:  data.TitleUnicode,
-			BeatmapId:     data.BeatmapId,
-			GameMode:      data.Mode,
-			Creator:       data.Creator,
-			Status:        data.Status,
+			Beatmap:        data,
+			HasStoryboard:  utils.Itob(data.HasStoryboard),
+			HasVideo:       utils.Itob(data.HasVideo),
+			CannotDownload: utils.Itob(data.CannotDownload),
+			NoAudio:        utils.Itob(data.NoAudio),
 			Link: map[string]string{
 				beatmapType: link,
 			},
-			Path:          map[string]string{beatmapType: path},
-			BeatmapsetId:  beatmapsetId,
-			HasStoryboard: data.HasStoryBoard == 1,
-			HasVideo:      data.HasVideo == 1,
+			Path: map[string]string{beatmapType: path},
 		}
-		lastUpdate, err := time.Parse(time.DateTime, data.LastUpdate)
-		if err != nil {
-			return "", nil, err
-		}
-		metadata.LastUpdate = lastUpdate.Unix()
 		result = append(result, metadata)
 	}
 	return beatmapType, result, nil
@@ -175,6 +163,7 @@ func (g *Generator) GenerateExistedFileMetadata(files []DriveItem) {
 					beatmapset.HasVideo = true
 				}
 				beatmapset.Beatmaps[b.BeatmapId] = origin
+				g.Metadata.Beatmaps[b.BeatmapId] = origin
 			}
 			g.Metadata.Beatmapsets[beatmapsetId] = beatmapset
 			logger.Info().Msgf("Generated: %s", file.Name)

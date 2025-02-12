@@ -4,6 +4,7 @@ import (
 	"context"
 	. "github.com/MingxuanGame/OsuBeatmapSync/model"
 	"github.com/MingxuanGame/OsuBeatmapSync/osu"
+	"github.com/MingxuanGame/OsuBeatmapSync/utils"
 	"github.com/rs/zerolog/log"
 	"time"
 )
@@ -27,23 +28,28 @@ func GetNewBeatmapset(client *osu.LegacyOfficialClient, since time.Time, lastBea
 			}
 		}
 		beatmap := BeatmapMetadata{
-			Status:        info.Status,
-			Artist:        info.Artist,
-			ArtistUnicode: info.ArtistUnicode,
-			Title:         info.Title,
-			TitleUnicode:  info.TitleUnicode,
-			BeatmapsetId:  info.BeatmapsetId,
-			BeatmapId:     info.BeatmapId,
-			GameMode:      info.Mode,
-			Creator:       info.Creator,
-			HasStoryboard: info.HasStoryBoard == 1,
-			HasVideo:      info.HasVideo == 1,
+			Beatmap:        info,
+			ApprovedDate:   utils.MustParseTime(info.ApprovedDate, time.DateTime).Unix(),
+			SubmitDate:     utils.MustParseTime(info.SubmitDate, time.DateTime).Unix(),
+			LastUpdate:     utils.MustParseTime(info.LastUpdate, time.DateTime).Unix(),
+			NoAudio:        utils.Itob(info.NoAudio),
+			CannotDownload: utils.Itob(info.CannotDownload),
+			HasStoryboard:  utils.Itob(info.HasStoryboard),
+			HasVideo:       utils.Itob(info.HasVideo),
+			Link:           make(map[string]string),
+			Path:           make(map[string]string),
 		}
 		if beatmap.HasVideo {
 			beatmapset.HasVideo = true
 		}
 		if beatmap.HasStoryboard {
 			beatmapset.HasStoryboard = true
+		}
+		if beatmap.CannotDownload {
+			beatmapset.CannotDownload = true
+		}
+		if beatmap.NoAudio {
+			beatmapset.NoAudio = true
 		}
 		beatmapset.Beatmaps[info.BeatmapId] = beatmap
 		lastBeatmapsetInfo[info.BeatmapsetId] = beatmapset

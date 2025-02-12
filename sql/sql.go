@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	. "github.com/MingxuanGame/OsuBeatmapSync/model"
+	"github.com/MingxuanGame/OsuBeatmapSync/utils"
+	"time"
 )
 import _ "github.com/ncruces/go-sqlite3/driver"
 import _ "github.com/ncruces/go-sqlite3/embed"
@@ -47,8 +49,31 @@ func writeGameModeUpdateTime(tx *sql.Tx, mode map[GameMode]MetadataGameMode) err
 	return nil
 }
 
-func writeBeatmap(tx *sql.Tx, metadata *BeatmapMetadata) error {
-	stmt, err := tx.Prepare("INSERT OR REPLACE INTO beatmaps (beatmap_id, status, artist, title, beatmapset_id, gamemode, creator, link, path, artist_unicode, title_unicode, last_update) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+func writeBeatmap(tx *sql.Tx, m *BeatmapMetadata) error {
+	stmt, err := tx.Prepare(`INSERT INTO beatmaps (
+			   BeatmapId, Status, SubmitDate,
+		       ApprovedDate, LastUpdate, Artist,
+		       BeatmapsetId, BPM, Creator,
+		       CreatorId, StarRating,
+		       CS, OD, AR, HP,
+		       HitLength, Source, GenreId, LanguageId,
+		       Title, TotalLength, DifficultyName, FileMd5,
+		       GameMode, Tags, CountNormal, CountSlider,
+		       CountSpinner, MaxCombo,
+		       HasStoryboard, HasVideo, CannotDownload, NoAudio,
+		       ArtistUnicode, TitleUnicode, Link, Path
+		) VALUES (?, ?, ?,
+		       	  ?, ?, ?,
+		          ?, ?, ?,
+                  ?, ?,
+		          ?, ?, ?, ?,
+		       	  ?, ?, ?, ?,
+		          ?, ?, ?, ?,
+                  ?, ?, ?, ?,
+                  ?, ?,
+                  ?, ?, ?, ?,
+                  ?, ?, ?, ?)
+`)
 	if err != nil {
 		return err
 	}
@@ -59,15 +84,53 @@ func writeBeatmap(tx *sql.Tx, metadata *BeatmapMetadata) error {
 		}
 	}(stmt)
 
-	link, err := json.Marshal(metadata.Link)
+	link, err := json.Marshal(m.Link)
 	if err != nil {
 		return err
 	}
-	path, err := json.Marshal(metadata.Path)
+	path, err := json.Marshal(m.Path)
 	if err != nil {
 		return err
 	}
-	_, err = stmt.Exec(metadata.BeatmapId, metadata.Status, metadata.Artist, metadata.Title, metadata.BeatmapsetId, metadata.GameMode, metadata.Creator, string(link), string(path), metadata.ArtistUnicode, metadata.TitleUnicode, metadata.LastUpdate)
+	_, err = stmt.Exec(
+		m.BeatmapId,
+		m.Status,
+		time.Unix(m.SubmitDate, 0).Format(time.DateTime),
+		time.Unix(m.SubmitDate, 0).Format(time.DateTime),
+		time.Unix(m.SubmitDate, 0).Format(time.DateTime),
+		m.Artist,
+		m.BeatmapsetId,
+		m.BPM,
+		m.Creator,
+		m.CreatorId,
+		m.StarRating,
+		m.CS,
+		m.OD,
+		m.AR,
+		m.HP,
+		m.HitLength,
+		m.Source,
+		m.GenreId,
+		m.LanguageId,
+		m.Title,
+		m.TotalLength,
+		m.DifficultyName,
+		m.FileMd5,
+		m.GameMode,
+		m.Tags,
+		m.CountNormal,
+		m.CountSlider,
+		m.CountSpinner,
+		m.MaxCombo,
+		utils.Btoi(m.HasStoryboard),
+		utils.Btoi(m.HasVideo),
+		utils.Btoi(m.CannotDownload),
+		utils.Btoi(m.NoAudio),
+		m.ArtistUnicode,
+		m.TitleUnicode,
+		string(link),
+		string(path),
+	)
 	if err != nil {
 		return err
 	}
@@ -75,7 +138,7 @@ func writeBeatmap(tx *sql.Tx, metadata *BeatmapMetadata) error {
 }
 
 func writeBeatmapset(tx *sql.Tx, metadata *BeatmapsetMetadata) error {
-	stmt, err := tx.Prepare("INSERT OR REPLACE INTO beatmapsets (beatmapsetid, last_update, link, path) VALUES (?, ?, ?, ?)")
+	stmt, err := tx.Prepare("INSERT INTO beatmapsets (beatmapsetid, last_update, has_storyboard, has_video, cannot_download, no_audio, link, path) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
 	if err != nil {
 		return err
 	}
@@ -94,7 +157,7 @@ func writeBeatmapset(tx *sql.Tx, metadata *BeatmapsetMetadata) error {
 	if err != nil {
 		return err
 	}
-	_, err = stmt.Exec(metadata.BeatmapsetId, metadata.LastUpdate, string(link), string(path))
+	_, err = stmt.Exec(metadata.BeatmapsetId, metadata.LastUpdate, utils.Btoi(metadata.HasStoryboard), utils.Btoi(metadata.HasVideo), utils.Btoi(metadata.CannotDownload), utils.Btoi(metadata.NoAudio), string(link), string(path))
 	if err != nil {
 		return err
 	}
@@ -160,16 +223,44 @@ func (d *Database) DropAllMetadata() error {
 	}
 
 	_, err = tx.Exec(`CREATE TABLE beatmaps (
-		beatmap_id INTEGER NOT NULL,
-		status INTEGER NOT NULL,
-		artist TEXT,
-		title TEXT,
-		beatmapset_id INTEGER NOT NULL,
-		gamemode INTEGER NOT NULL,
-		creator TEXT, link TEXT, "path" TEXT, artist_unicode TEXT, title_unicode text,
-		last_update INTEGER DEFAULT 0,
-		CONSTRAINT beatmaps_pk PRIMARY KEY (beatmap_id)
-	)`)
+	    BeatmapId INTEGER PRIMARY KEY,
+	    Status INTEGER,
+	    SubmitDate TEXT,
+	    ApprovedDate TEXT,
+	    LastUpdate TEXT,
+	    Artist TEXT,
+	    BeatmapsetId INTEGER,
+	    BPM REAL,
+	    Creator TEXT,
+	    CreatorId INTEGER,
+	    StarRating REAL,
+	    CS REAL,
+	    OD REAL,
+	    AR REAL,
+	    HP REAL,
+	    HitLength INTEGER,
+	    Source TEXT,
+	    GenreId INTEGER,
+	    LanguageId INTEGER,
+	    Title TEXT,
+	    TotalLength INTEGER,
+	    DifficultyName TEXT,
+	    FileMd5 TEXT,
+	    GameMode INTEGER,
+	    Tags TEXT,
+	    CountNormal INTEGER,
+	    CountSlider INTEGER,
+	    CountSpinner INTEGER,
+	    MaxCombo INTEGER,
+	    HasStoryboard,
+	    HasVideo INTEGER,
+	    CannotDownload INTEGER,
+	    NoAudio INTEGER,
+	    ArtistUnicode TEXT,
+	    TitleUnicode TEXT,
+	    Link TEXT,
+	    Path TEXT
+	);`)
 	if err != nil {
 		return err
 	}
@@ -187,6 +278,10 @@ func (d *Database) DropAllMetadata() error {
 			constraint beatmapsets_pk
 				primary key,
 		last_update  integer,
+		has_storyboard integer,
+		has_video    integer,
+		cannot_download integer,
+		no_audio    integer,
 		link         text,
 		path         text
 	)`)
@@ -234,7 +329,9 @@ func (d *Database) ReadMetadata() (Metadata, error) {
 	for rows.Next() {
 		var m BeatmapMetadata
 		var link, path string
-		err := rows.Scan(&m.BeatmapId, &m.Status, &m.Artist, &m.Title, &m.BeatmapsetId, &m.GameMode, &m.Creator, &link, &path, &m.ArtistUnicode, &m.TitleUnicode, &m.LastUpdate)
+		var hasStoryboard, hasVideo, hasDownload, hasAudio int
+		var _submitDate, _approvedDate, _lastUpdate string
+		err := rows.Scan(&m.BeatmapId, &m.Status, &_submitDate, &_approvedDate, &_lastUpdate, &m.Artist, &m.BeatmapsetId, &m.BPM, &m.Creator, &m.CreatorId, &m.StarRating, &m.CS, &m.OD, &m.AR, &m.HP, &m.HitLength, &m.Source, &m.GenreId, &m.LanguageId, &m.Title, &m.TotalLength, &m.DifficultyName, &m.FileMd5, &m.GameMode, &m.Tags, &m.CountNormal, &m.CountSlider, &m.CountSpinner, &m.MaxCombo, &hasStoryboard, &hasVideo, &hasDownload, &hasAudio, &m.ArtistUnicode, &m.TitleUnicode, &link, &path)
 		if err != nil {
 			return Metadata{}, err
 		}
@@ -246,6 +343,25 @@ func (d *Database) ReadMetadata() (Metadata, error) {
 		if err != nil {
 			return Metadata{}, err
 		}
+		m.NoAudio = utils.Itob(hasAudio)
+		m.CannotDownload = utils.Itob(hasDownload)
+		m.HasStoryboard = utils.Itob(hasStoryboard)
+		m.HasVideo = utils.Itob(hasVideo)
+		submitDate, err := time.Parse(time.DateTime, _submitDate)
+		if err != nil {
+			return Metadata{}, err
+		}
+		m.SubmitDate = submitDate.Unix()
+		approvedDate, err := time.Parse(time.DateTime, _approvedDate)
+		if err != nil {
+			return Metadata{}, err
+		}
+		m.ApprovedDate = approvedDate.Unix()
+		lastUpdate, err := time.Parse(time.DateTime, _lastUpdate)
+		if err != nil {
+			return Metadata{}, err
+		}
+		m.LastUpdate = lastUpdate.Unix()
 		beatmaps[m.BeatmapId] = m
 	}
 
@@ -264,7 +380,8 @@ func (d *Database) ReadMetadata() (Metadata, error) {
 	for rows.Next() {
 		var m BeatmapsetMetadata
 		var link, path string
-		err := rows.Scan(&m.BeatmapsetId, &m.LastUpdate, &link, &path)
+		var hasStoryboard, hasVideo, hasDownload, hasAudio int
+		err := rows.Scan(&m.BeatmapsetId, &m.LastUpdate, &hasStoryboard, &hasVideo, &hasDownload, &hasAudio, &link, &path)
 		if err != nil {
 			return Metadata{}, err
 		}
@@ -276,6 +393,10 @@ func (d *Database) ReadMetadata() (Metadata, error) {
 		if err != nil {
 			return Metadata{}, err
 		}
+		m.NoAudio = utils.Itob(hasAudio)
+		m.CannotDownload = utils.Itob(hasDownload)
+		m.HasStoryboard = utils.Itob(hasStoryboard)
+		m.HasVideo = utils.Itob(hasVideo)
 		beatmapsets[m.BeatmapsetId] = m
 	}
 

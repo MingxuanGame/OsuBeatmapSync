@@ -190,9 +190,10 @@ func (s *Syncer) uploadTask(wg *sync.WaitGroup, beatmapset BeatmapsetMetadata, d
 		pathMap[typ] = cloudPath
 	}
 
-	for _, v := range beatmapset.Beatmaps {
+	for bid, v := range beatmapset.Beatmaps {
 		v.Link = linkMap
 		v.Path = pathMap
+		beatmapset.Beatmaps[bid] = v
 	}
 	beatmapset.Link = linkMap
 	beatmapset.Path = pathMap
@@ -220,6 +221,10 @@ func (s *Syncer) syncSingleBeatmapset(wg *sync.WaitGroup, downloader download.Be
 	s.mux.Lock()
 	s.created[beatmapset.BeatmapsetId] = struct{}{}
 	s.mux.Unlock()
+	if beatmapset.CannotDownload || beatmapset.NoAudio {
+		logger.Warn().Int("sid", beatmapset.BeatmapsetId).Msgf("Beatmapset %s is missing download or audio, skip", beatmapset.String())
+		return
+	}
 	data, err := downloadBeatmap(downloader, &beatmapset)
 	if err != nil {
 		panic(err)
@@ -262,12 +267,19 @@ jumpLoop:
 	wg.Wait()
 	clear(s.created)
 	for k, v := range s.result {
-		s.Metadata.Beatmapsets[k] = v
-		for _, beatmap := range v.Beatmaps {
-			s.Metadata.GameMode[beatmap.GameMode] = MetadataGameMode{
-				UpdateTime: time.Now().Unix(),
+		for bid, beatmap := range v.Beatmaps {
+			s.Metadata.Beatmaps[bid] = beatmap
+			if v.LastUpdate < beatmap.LastUpdate {
+				v.LastUpdate = beatmap.LastUpdate
+			}
+			gamemode, ok := s.Metadata.GameMode[beatmap.GameMode]
+			if !ok || gamemode.UpdateTime < beatmap.LastUpdate {
+				s.Metadata.GameMode[beatmap.GameMode] = MetadataGameMode{
+					UpdateTime: beatmap.LastUpdate,
+				}
 			}
 		}
+		s.Metadata.Beatmapsets[k] = v
 	}
 }
 

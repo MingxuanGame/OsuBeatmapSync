@@ -3,29 +3,28 @@ package model
 import "fmt"
 
 type BeatmapMetadata struct {
-	Status        BeatmapStatus     `json:"status"`
-	Artist        string            `json:"artist"`
-	ArtistUnicode string            `json:"artist_unicode"`
-	Title         string            `json:"title"`
-	TitleUnicode  string            `json:"title_unicode"`
-	BeatmapsetId  int               `json:"beatmapset_id"`
-	BeatmapId     int               `json:"beatmap_id"`
-	GameMode      GameMode          `json:"gamemode"`
-	Creator       string            `json:"creator"`
-	Link          map[string]string `json:"link"`
-	Path          map[string]string `json:"path"`
-	LastUpdate    int64             `json:"last_update"`
-	HasStoryboard bool              `json:"has_storyboard"`
-	HasVideo      bool              `json:"has_video"`
+	Beatmap
+	ApprovedDate   int64             `json:"approved_date"`
+	SubmitDate     int64             `json:"submit_date"`
+	LastUpdate     int64             `json:"last_update"`
+	HasStoryboard  bool              `json:"has_storyboard"`
+	HasVideo       bool              `json:"has_video"`
+	CannotDownload bool              `json:"has_download"`
+	NoAudio        bool              `json:"has_audio"`
+	Link           map[string]string `json:"link"`
+	Path           map[string]string `json:"path"`
 }
+
 type BeatmapsetMetadata struct {
-	Beatmaps      map[int]BeatmapMetadata `json:"beatmaps"`
-	BeatmapsetId  int                     `json:"beatmapset_id"`
-	LastUpdate    int64                   `json:"last_update"`
-	Link          map[string]string       `json:"link"`
-	Path          map[string]string       `json:"path"`
-	HasStoryboard bool                    `json:"has_storyboard"`
-	HasVideo      bool                    `json:"has_video"`
+	Beatmaps       map[int]BeatmapMetadata `json:"beatmaps"`
+	BeatmapsetId   int                     `json:"beatmapset_id"`
+	LastUpdate     int64                   `json:"last_update"`
+	Link           map[string]string       `json:"link"`
+	Path           map[string]string       `json:"path"`
+	HasStoryboard  bool                    `json:"has_storyboard"`
+	HasVideo       bool                    `json:"has_video"`
+	CannotDownload bool                    `json:"has_download"`
+	NoAudio        bool                    `json:"has_audio"`
 }
 
 type MetadataGameMode struct {
@@ -39,46 +38,34 @@ type Metadata struct {
 }
 
 func (b BeatmapsetMetadata) Equal(other BeatmapsetMetadata) bool {
-	if b.LastUpdate < other.LastUpdate {
-		return false
-	}
-
-	if len(b.Beatmaps) != len(other.Beatmaps) {
+	if b.LastUpdate < other.LastUpdate || len(b.Beatmaps) != len(other.Beatmaps) {
 		return false
 	}
 
 	for k, sourceBeatmap := range b.Beatmaps {
 		otherBeatmap := other.Beatmaps[k]
-		if sourceBeatmap.Artist != otherBeatmap.Artist {
+		if sourceBeatmap.Artist != otherBeatmap.Artist ||
+			sourceBeatmap.ArtistUnicode != otherBeatmap.ArtistUnicode ||
+			sourceBeatmap.Title != otherBeatmap.Title ||
+			sourceBeatmap.TitleUnicode != otherBeatmap.TitleUnicode ||
+			sourceBeatmap.GameMode != otherBeatmap.GameMode ||
+			sourceBeatmap.LastUpdate != otherBeatmap.LastUpdate ||
+			sourceBeatmap.Status != otherBeatmap.Status ||
+			sourceBeatmap.HasStoryboard != otherBeatmap.HasStoryboard ||
+			sourceBeatmap.HasVideo != otherBeatmap.HasVideo ||
+			sourceBeatmap.CreatorId != otherBeatmap.CreatorId ||
+			sourceBeatmap.DifficultyName != otherBeatmap.DifficultyName ||
+			sourceBeatmap.StarRating != otherBeatmap.StarRating ||
+			sourceBeatmap.CS != otherBeatmap.CS ||
+			sourceBeatmap.AR != otherBeatmap.AR ||
+			sourceBeatmap.OD != otherBeatmap.OD ||
+			sourceBeatmap.HP != otherBeatmap.HP ||
+			sourceBeatmap.BPM != otherBeatmap.BPM ||
+			sourceBeatmap.MaxCombo != otherBeatmap.MaxCombo ||
+			sourceBeatmap.HitLength != otherBeatmap.HitLength ||
+			sourceBeatmap.TotalLength != otherBeatmap.TotalLength {
 			return false
 		}
-		if sourceBeatmap.ArtistUnicode != otherBeatmap.ArtistUnicode {
-			return false
-		}
-		if sourceBeatmap.Title != otherBeatmap.Title {
-			return false
-		}
-		if sourceBeatmap.TitleUnicode != otherBeatmap.TitleUnicode {
-			return false
-		}
-		if sourceBeatmap.GameMode != otherBeatmap.GameMode {
-			return false
-		}
-		//if sourceBeatmap.Creator!=otherBeatmap.Creator{return false}
-		if sourceBeatmap.LastUpdate != otherBeatmap.LastUpdate {
-			return false
-		}
-		if sourceBeatmap.Status != otherBeatmap.Status {
-			return false
-		}
-		//if len(sourceBeatmap.Link) != len(otherBeatmap.Link) {
-		//	return false
-		//}
-		//for i, sourceLink := range sourceBeatmap.Link {
-		//	if sourceLink != otherBeatmap.Link[i] {
-		//		return false
-		//	}
-		//}
 	}
 	return true
 }
