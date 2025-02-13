@@ -223,6 +223,9 @@ func (s *Syncer) syncSingleBeatmapset(wg *sync.WaitGroup, downloader download.Be
 	s.mux.Unlock()
 	if beatmapset.CannotDownload || beatmapset.NoAudio {
 		logger.Warn().Int("sid", beatmapset.BeatmapsetId).Msgf("Beatmapset %s is missing download or audio, skip", beatmapset.String())
+		s.mux.Lock()
+		delete(s.created, beatmapset.BeatmapsetId)
+		s.mux.Unlock()
 		return
 	}
 	data, err := downloadBeatmap(downloader, &beatmapset)
