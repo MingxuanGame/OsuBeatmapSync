@@ -106,7 +106,6 @@ func (g *Generator) GenerateExistedFileMetadata(files []DriveItem) {
 
 			g.mux.Lock()
 			beatmaps := make(map[int]BeatmapMetadata)
-			lastUpdate := int64(0)
 			beatmapsetId := beatmapMetadata[0].BeatmapsetId
 			beatmapset, ok := g.Metadata.Beatmapsets[beatmapsetId]
 			if !ok {
@@ -141,9 +140,6 @@ func (g *Generator) GenerateExistedFileMetadata(files []DriveItem) {
 						gameModeUpdateTime.UpdateTime = b.LastUpdate
 						g.Metadata.GameMode[b.GameMode] = gameModeUpdateTime
 					}
-				}
-				if b.LastUpdate > lastUpdate {
-					lastUpdate = b.LastUpdate
 				}
 
 				// in beatmapset

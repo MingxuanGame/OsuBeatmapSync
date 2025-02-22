@@ -60,6 +60,9 @@ func GetNewBeatmapset(client *osu.LegacyOfficialClient, since time.Time, lastBea
 		if currentTime.After(lastTime) {
 			lastTime = currentTime
 		}
+		if beatmapset.LastUpdate < beatmap.LastUpdate {
+			beatmapset.LastUpdate = beatmap.LastUpdate
+		}
 	}
 	return lastTime, false, nil
 }
