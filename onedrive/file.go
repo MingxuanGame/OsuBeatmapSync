@@ -11,7 +11,7 @@ import (
 	"sync"
 )
 
-const shareLinkRegex = `https:\/\/(\S+).sharepoint.com\/:\S:\/g\/personal\/(\S+)\/(\w+)`
+const shareLinkRegex = `https:\/\/(\S+).sharepoint.com\/:\S:\/g\/personal\/(\S+)\/([a-zA-Z_\-0-9]+)`
 
 func (client *GraphClient) ListFiles(path string, length int, nextUrl string) (*[]DriveItem, error) {
 	u := "/me/drive/root:/" + path + ":/children?select=id,name,size,file,folder,shared,parentReference&top=" + strconv.Itoa(length)
