@@ -29,6 +29,18 @@ func getAllFile(graph *onedrive.GraphClient, root string) ([]DriveItem, error) {
 	return allFiles, nil
 }
 
+func removeExisted(metadata *Metadata, needMakeList []DriveItem) []DriveItem {
+	logger.Trace().Msg("Remove existed files")
+	var newNeedMakeList []DriveItem
+	for _, file := range needMakeList {
+		_, _, beatmapsetId := utils.ParseFilename(file.Name)
+		if _, ok := metadata.Beatmapsets[beatmapsetId]; !ok {
+			newNeedMakeList = append(newNeedMakeList, file)
+		}
+	}
+	return newNeedMakeList
+}
+
 func readLocalNeedMakeList(filename string) ([]DriveItem, error, bool) {
 	logger.Trace().Msgf("Try to read local %s", needMakeListFilename)
 	var needMakeList []DriveItem
@@ -79,7 +91,7 @@ func getNeedMakeList(graph *onedrive.GraphClient, root string, metadata *Metadat
 			return nil, err
 		}
 	}
-	return needMakeList, nil
+	return removeExisted(metadata, needMakeList), nil
 }
 
 func makeMetadata(g *Generator, needMakeList []DriveItem, ctx context.Context) error {
@@ -174,6 +186,7 @@ func MakeMetadata(ctx context.Context, tasks, worker int, start bool) error {
 		if err != nil {
 			return err
 		}
+		needMakeList = removeExisted(&metadata, needMakeList)
 		if !ok {
 			return fmt.Errorf("no needMakeList file")
 		}
